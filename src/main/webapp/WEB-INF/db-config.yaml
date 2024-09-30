@@ -1,0 +1,343 @@
+# Database configuration
+database:
+  url: jdbc:postgresql://localhost:5432/tournament_management_system
+  username: saran-pt7697
+  password: "3012"
+  modelPackage: com.saran.tms.models
+
+# Table configuration
+tables: 
+  # sports table
+  - tableName: sports
+    modelName: SportModel
+    columns: 
+      - columnName: sport_id
+        fieldName: sportId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: sport_name
+        fieldName: sportName
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: sport_type
+        fieldName: sportType
+        dataType: Short
+        constraints: []
+
+      - columnName: team_size
+        fieldName: teamSize
+        dataType: Short
+        constraints: []
+
+  # organizations table
+  - tableName: organizations
+    modelName: OrganizationModel
+    columns: 
+      - columnName: organization_id
+        fieldName: organizationId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: organization_name
+        fieldName: organizationName
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: organization_address
+        fieldName: organizationAddress
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: started_year
+        fieldName: startedYear
+        dataType: Short
+        constraints: [not_null]
+
+      - columnName: organization_status
+        fieldName: organizationStatus
+        dataType: Short
+        constraints: []
+
+      - columnName: organization_created_at
+        fieldName: organizationCreatedAt
+        dataType: Long
+        constraints: [autoassign]
+
+  # users table
+  - tableName: users
+    modelName: UserModel
+    columns: 
+      - columnName: user_id
+        fieldName: userId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: user_name
+        fieldName: userName
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: date_of_birth
+        fieldName: dateOfBirth
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: phone_number
+        fieldName: phoneNumber
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: email
+        fieldName: email
+        dataType: String
+        constraints: [unique, not_null]
+
+      - columnName: password
+        fieldName: password
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: gender
+        fieldName: gender
+        dataType: Short
+        constraints: []
+
+      - columnName: blood_group
+        fieldName: bloodGroup
+        dataType: String
+        constraints: []
+
+      - columnName: user_address
+        fieldName: userAddress
+        dataType: String
+        constraints: []
+
+      - columnName: role
+        fieldName: role
+        dataType: Short
+        constraints: []
+
+      - columnName: organization_id
+        fieldName: organizationId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: user_created_at
+        fieldName: userCreatedAt
+        dataType: Long
+        constraints: [autoassign]
+
+  # tournaments table
+  - tableName: tournaments
+    modelName: TournamentModel
+    columns: 
+      - columnName: tournament_id
+        fieldName: tournamentId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: tournament_name
+        fieldName: tournamentName
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: max_participation
+        fieldName: maxParticipation
+        dataType: Short
+        constraints: [not_null]
+
+      - columnName: registration_start_date
+        fieldName: registrationStartDate
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: registration_end_date
+        fieldName: registrationEndDate
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: tournament_venue
+        fieldName: venue
+        dataType: String
+        constraints: []
+
+      - columnName: tournament_date
+        fieldName: tournamentDate
+        dataType: Long
+        constraints: []
+
+      - columnName: tournament_status
+        fieldName: tournamentStatus
+        dataType: Short
+        constraints: []
+
+      - columnName: sport_id
+        fieldName: sportId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: organization_id
+        fieldName: organizationId
+        dataType: Long
+        constraints: []
+
+      - columnName: tournament_created_at
+        fieldName: tournamentCreatedAt
+        dataType: Long
+        constraints: [autoassign]
+
+  # tournament_participants table
+  - tableName: tournament_participants
+    modelName: TournamentParticipantModel
+    columns: 
+      - columnName: participant_id
+        fieldName: participantId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: user_id
+        fieldName: userId
+        dataType: Long
+        constraints: []
+
+      - columnName: tournament_id
+        fieldName: tournamentId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: participant_status
+        fieldName: participantStatus
+        dataType: Short
+        constraints: []
+
+  # tournament_teams table
+  - tableName: tournament_teams
+    modelName: TournamentTeamModel
+    columns: 
+      - columnName: team_id
+        fieldName: teamId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: team_name
+        fieldName: teamName
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: team_leader_id
+        fieldName: teamLeaderId
+        dataType: Long
+        constraints: []
+
+      - columnName: tournament_id
+        fieldName: tournamentId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: team_status
+        fieldName: teamStatus
+        dataType: Short
+        constraints: []
+
+  # team_members table
+  - tableName: team_members
+    modelName: TeamMemberModel
+    columns: 
+      - columnName: team_member_id
+        fieldName: teamMemberId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: user_id
+        fieldName: userId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: team_id
+        fieldName: teamId
+        dataType: Long
+        constraints: [not_null]
+
+  # tournament_events table
+  - tableName: tournament_events
+    modelName: TournamentEventModel
+    columns: 
+      - columnName: tournament_event_id
+        fieldName: tournamentEventId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: tournament_event_date
+        fieldName: tournamentEventDate
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: tournament_event_venue
+        fieldName: tournamentEventVenue
+        dataType: String
+        constraints: [not_null]
+
+      - columnName: tournament_event_round
+        fieldName: tournamentEventRound
+        dataType: Short
+        constraints: []
+
+      - columnName: tournament_id
+        fieldName: tournamentId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: tournament_event_winner_id
+        fieldName: tournamentEventWinnerId
+        dataType: Long
+        constraints: []
+
+      - columnName: tournament_event_status
+        fieldName: tournamentEventStatus
+        dataType: Short
+        constraints: []
+
+      - columnName: tournament_event_created_at
+        fieldName: tournamentEventCreatedAt
+        dataType: Long
+        constraints: [autoassign]
+
+  # tournament_event_teams table
+  - tableName: tournament_event_teams
+    modelName: TournamentEventTeamModel
+    columns: 
+      - columnName: tournament_event_team_id
+        fieldName: tournamentEventTeamId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: tournament_event_id
+        fieldName: tournamentEventId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: team_id
+        fieldName: teamId
+        dataType: Long
+        constraints: [not_null]
+
+  # tournament_event_participants table
+  - tableName: tournament_event_participants
+    modelName: TournamentEventParticipantModel
+    columns: 
+      - columnName: tournament_event_participant_id
+        fieldName: tournamentEventParticipantId
+        dataType: Long
+        constraints: [primary_key, autoassign]
+
+      - columnName: tournament_event_id
+        fieldName: tournamentEventId
+        dataType: Long
+        constraints: [not_null]
+
+      - columnName: participant_id
+        fieldName: participantId
+        dataType: Long
+        constraints: [not_null]

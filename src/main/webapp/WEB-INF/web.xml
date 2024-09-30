@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://xmlns.jcp.org/xml/ns/javaee" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd" id="WebApp_ID" version="4.0">
+  	
+  	<display-name>tms</display-name>
+  	
+  	<!-- Starting pages -->
+  	<welcome-file-list>
+    	<welcome-file>index.html</welcome-file>
+    	<welcome-file>index.jsp</welcome-file>
+    	<welcome-file>index.htm</welcome-file>
+    	<welcome-file>default.html</welcome-file>
+    	<welcome-file>default.jsp</welcome-file>
+    	<welcome-file>default.htm</welcome-file>
+  	</welcome-file-list>
+  
+  
+  	<!-- Servlet Context Configuration -->
+  	<context-param>
+		<param-name>LogsFolder</param-name>
+	    <param-value>/Users/saran-pt7697/eclipse-workspace/application-logs</param-value>
+  	</context-param>
+
+  
+  	<context-param>
+		<param-name>DataBaseConfig</param-name>
+	    <param-value>/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/db-config.yaml</param-value>
+  	</context-param>
+  
+  	<!-- Servlet Context Listener -->
+   	<listener>
+        <listener-class>com.saran.tms.listeners.AppContextListener</listener-class>
+    </listener>
+    
+    <!-- CORS Filter -->
+    <filter>
+        <filter-name>CorsFilter</filter-name>
+        <filter-class>com.saran.tms.filters.CorsFilter</filter-class>
+    </filter>
+    
+    <filter-mapping>
+        <filter-name>CorsFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    
+    <!-- Main API -->
+    <servlet>
+         <servlet-name>ApiVersionOne</servlet-name>
+         <servlet-class>com.saran.tms.servlets.ApiServletV1</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+         <servlet-name>ApiVersionOne</servlet-name>
+         <url-pattern>/api/v1/*</url-pattern>
+    </servlet-mapping>
+    
+    <!-- Authentication API -->
+    <servlet>
+         <servlet-name>Authentication</servlet-name>
+         <servlet-class>com.saran.tms.servlets.AuthenticationServlet</servlet-class>
+    </servlet>
+    
+    <servlet-mapping>
+         <servlet-name>Authentication</servlet-name>
+         <url-pattern>/auth/*</url-pattern>
+    </servlet-mapping>
+    
+</web-app>
