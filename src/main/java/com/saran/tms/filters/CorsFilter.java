@@ -1,6 +1,7 @@
 package com.saran.tms.filters;
 
 import java.io.IOException;
+
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
 import javax.servlet.FilterConfig;
@@ -33,7 +34,7 @@ public class CorsFilter extends HttpFilter implements Filter {
 		httpResponse.setHeader("Access-Control-Allow-Origin", "*");
 		httpResponse.setHeader("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT, DELETE");
 		httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
-		httpResponse.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+		httpResponse.setHeader("Access-Control-Allow-Headers", "*");
 		
 		chain.doFilter(request, response);
 		

@@ -93,7 +93,7 @@ public class Dao {
 	}
 	
 	public Model findOne(List<String> requiredFields, List<ConditionEntry> requiredConditions) throws ResponseException {
-		if(requiredFields == null || requiredFields.isEmpty() || requiredConditions == null || requiredConditions.isEmpty()) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 		
@@ -110,7 +110,7 @@ public class Dao {
 	}
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions) throws ResponseException {
-		if(requiredFields == null || requiredFields.isEmpty() || requiredConditions == null || requiredConditions.isEmpty()) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 
@@ -130,7 +130,7 @@ public class Dao {
 	}
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions, Integer limit, Integer offset) throws ResponseException {
-		if(requiredFields == null || requiredFields.isEmpty() || requiredConditions == null || requiredConditions.isEmpty()) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 
@@ -152,7 +152,7 @@ public class Dao {
 	}
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions,  Map<String, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
-		if(requiredFields == null || requiredFields.isEmpty() || requiredConditions == null || requiredConditions.isEmpty()) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 
@@ -175,7 +175,7 @@ public class Dao {
 	}
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredContitions,  Map<String, Functions> fieldFunctions, List<String> groupFields, Integer limit, Integer offset) throws ResponseException {
-		if(requiredFields == null || requiredContitions == null) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 		
@@ -209,7 +209,7 @@ public class Dao {
 	} 
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredContitions,  Map<String, Functions> fieldFunctions, List<String> groupFields, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
-		if(requiredFields == null || requiredContitions == null) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 		
@@ -255,7 +255,7 @@ public class Dao {
 	}
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions, List<String> groupFields, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
-		if(requiredFields == null || requiredConditions == null) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 		
@@ -300,7 +300,7 @@ public class Dao {
 	}
 	
 	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
-		if(requiredFields == null || requiredConditions == null) {
+		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
 		

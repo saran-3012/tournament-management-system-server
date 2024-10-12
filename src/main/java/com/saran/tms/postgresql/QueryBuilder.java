@@ -287,6 +287,7 @@ private StringBuilder queryBuilder;
 	public QueryBuilder condition(TableNames tableName ,String columnName, List<Operators> prefixOperators, List<Operators> suffixOperators) {
 		if(prefixOperators != null) {
 			for(Operators operator : prefixOperators) {
+				if(operator == null) continue;
 				this.field(operator.getOperator());
 			}
 		}
@@ -295,6 +296,7 @@ private StringBuilder queryBuilder;
 		
 		if(suffixOperators != null) {
 			for(Operators operator : suffixOperators) {
+				if(operator == null) continue;
 				this.field(operator.getOperator());
 			}
 		}
@@ -349,6 +351,20 @@ private StringBuilder queryBuilder;
 	public QueryBuilder whereTableConditions(List<TableConditionEntry> tableConditionEntries) {
 		
 		if(tableConditionEntries == null || tableConditionEntries.isEmpty()) {
+			return this;
+		}
+		
+		boolean canFormQuery = false;
+		
+		for(TableConditionEntry tableConditionEntry : tableConditionEntries) {
+			List<ConditionEntry> columnConditions = tableConditionEntry.getColumnContitions();
+			if(columnConditions != null && !columnConditions.isEmpty()) {
+				canFormQuery = true;
+				break;
+			}
+		}
+		
+		if(!canFormQuery) {
 			return this;
 		}
 		

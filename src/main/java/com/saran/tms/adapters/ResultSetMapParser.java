@@ -14,20 +14,22 @@ public class ResultSetMapParser {
 		ResultSetMetaData rsmd = rs.getMetaData();
 		int columnCount = rsmd.getColumnCount();
 		
-		rs.next();
 		Map<String, Map<String, Object>> tableMap = new HashMap<>();
-		for(int i=1; i<=columnCount; i++) {
+		if(rs.next()) {
 			
-			String tableName = rsmd.getTableName(i);
-			String columnName = rsmd.getColumnName(i);
-			
-			Map<String, Object> rowMap = tableMap.getOrDefault(tableName, new HashMap<>());
-			rowMap.put(columnName, rs.getObject(i));
-			
-			tableMap.put(tableName, rowMap);
+			for(int i=1; i<=columnCount; i++) {
+				
+				String tableName = rsmd.getTableName(i);
+				String columnName = rsmd.getColumnName(i);
+				
+				Map<String, Object> rowMap = tableMap.getOrDefault(tableName, new HashMap<>());
+				rowMap.put(columnName, rs.getObject(i));
+				
+				tableMap.put(tableName, rowMap);
+				
+			}
 			
 		}
-
 		return tableMap;
 	}
 	

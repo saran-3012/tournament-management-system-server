@@ -4,14 +4,17 @@
   	<display-name>tms</display-name>
   	
   	<!-- Starting pages -->
-  	<welcome-file-list>
-    	<welcome-file>index.html</welcome-file>
-    	<welcome-file>index.jsp</welcome-file>
-    	<welcome-file>index.htm</welcome-file>
-    	<welcome-file>default.html</welcome-file>
-    	<welcome-file>default.jsp</welcome-file>
-    	<welcome-file>default.htm</welcome-file>
-  	</welcome-file-list>
+
+  	<servlet>
+	    <servlet-name>client</servlet-name>
+	    <jsp-file>/client.jsp</jsp-file>
+	</servlet>
+	
+	<servlet-mapping>
+	    <servlet-name>client</servlet-name>
+	    <url-pattern>/app/*</url-pattern>
+	</servlet-mapping>
+
   
   
   	<!-- Servlet Context Configuration -->
@@ -39,7 +42,33 @@
     
     <filter-mapping>
         <filter-name>CorsFilter</filter-name>
-        <url-pattern>/*</url-pattern>
+        <url-pattern>/api/*</url-pattern>
+    </filter-mapping>
+    
+    <filter-mapping>
+        <filter-name>CorsFilter</filter-name>
+        <url-pattern>/auth/*</url-pattern>
+    </filter-mapping>
+    
+    <!-- Auth Filter -->
+    <filter>
+        <filter-name>AuthFilter</filter-name>
+        <filter-class>com.saran.tms.filters.AuthFilter</filter-class>
+    </filter>
+    
+    <filter-mapping>
+        <filter-name>AuthFilter</filter-name>
+        <url-pattern>/api/*</url-pattern>
+    </filter-mapping>
+    
+    <filter-mapping>
+        <filter-name>AuthFilter</filter-name>
+        <url-pattern>/auth/checkin</url-pattern>
+    </filter-mapping>
+  
+  	<filter-mapping>
+        <filter-name>AuthFilter</filter-name>
+        <url-pattern>/auth/change-password</url-pattern>
     </filter-mapping>
     
     <!-- Main API -->

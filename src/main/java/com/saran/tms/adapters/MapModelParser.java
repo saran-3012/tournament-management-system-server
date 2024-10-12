@@ -20,11 +20,7 @@ public class MapModelParser {
 	
 	public static Model convertToObject(String className, Map<String, Object> objectMap) throws ResponseException {
 		
-		if(objectMap == null) {
-			throw new IllegalArgumentException("The map cannot be null");
-		}
-		
-		if(objectMap.isEmpty()) {
+		if(objectMap == null || objectMap.isEmpty()) {
 			return null;
 		}
 		

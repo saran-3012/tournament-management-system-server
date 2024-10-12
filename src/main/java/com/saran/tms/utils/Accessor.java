@@ -17,6 +17,7 @@ public class Accessor {
 		
 		String fieldStringValue = null;
 		
+		
 		if(fieldValue != null) {
 			fieldStringValue = fieldValue.toString();
 		}

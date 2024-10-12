@@ -42,7 +42,6 @@ public class ModelValidator {
 	}
 	
 	public static boolean validateModel(Model model) throws ResponseException {
-		
 		Class<?> modelClass = model.getClass();
 		String modelName = modelClass.getSimpleName();
 		
@@ -64,7 +63,6 @@ public class ModelValidator {
 				ApplicationLogger.log(Level.SEVERE, "Unable to access the method using reflection", e);
 				throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
 			}
-			
 			Set<Constraints> columnConstraints = columnConfig.getConstraints();
 			
 			if(columnConstraints.contains(Constraints.AUTO_ASSIGN)) {

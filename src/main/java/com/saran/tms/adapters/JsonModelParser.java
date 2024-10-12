@@ -20,6 +20,10 @@ public class JsonModelParser {
 	
 	public static Model parse(JSONObject jsonObject, Class<? extends Model> modelClass) throws ResponseException {
 		
+		if(jsonObject == null) {
+			return null;
+		}
+		
 		Model model = null;
 		try {
 			model = modelClass.getDeclaredConstructor().newInstance();

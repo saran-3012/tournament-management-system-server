@@ -50,6 +50,12 @@ public class ConditionEntry{
 	public void setSuffixOperators(List<Operators> suffixOperators) {
 		this.suffixOperators = suffixOperators;
 	}
+
+	@Override
+	public String toString() {
+		return "ConditionEntry [prefixOperators=" + prefixOperators + ", columnName=" + columnName
+				+ ", suffixOperators=" + suffixOperators + ", value=" + value + "]";
+	}
 	
 	
 }

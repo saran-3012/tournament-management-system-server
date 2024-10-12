@@ -24,7 +24,7 @@ public class MultiThreading extends Thread {
 			
 			List<Model> users = udao.findAll(
 										Arrays.asList("*"), 
-										Arrays.asList(new ConditionEntry(null, "user_name", Arrays.asList(Operators.ILIKE), "%saran%"))
+										Arrays.asList()
 									);
 			
 			System.out.println("Users" + users);

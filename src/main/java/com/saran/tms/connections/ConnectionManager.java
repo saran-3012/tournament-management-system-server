@@ -3,7 +3,6 @@ package com.saran.tms.connections;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.saran.tms.config.DataBaseConfig;
 

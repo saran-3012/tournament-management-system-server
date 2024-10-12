@@ -181,7 +181,7 @@ tables:
       - columnName: organization_id
         fieldName: organizationId
         dataType: Long
-        constraints: []
+        constraints: [not_null]
 
       - columnName: tournament_created_at
         fieldName: tournamentCreatedAt

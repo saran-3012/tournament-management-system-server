@@ -31,25 +31,24 @@ import com.saran.tms.pojo.OrderEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
 
-public class PostgresDataBase extends DataBase {
+public class PostgresDataBase implements DataBase {
 	
-	 private static String handleSQLException(String sqlState) {
-
-	        switch (sqlState) {
-	            case "23505":
-	                return "The provided field is duplicated for this entity";
-	            case "23502":
-	                return "The provided field cannot be Empty or Null value";
-	            case "23503":
-	                return "Relationship does not exists for this entity";
-	            case "42601":
-	                return "Query is not well formed";
-	            case "08001":
-	                return "Connection failed during operation";
-	            default:
-	                return "Unable to process the content";
-	        }
-	    }
+	private static String handleSQLException(String sqlState) {
+		 switch (sqlState) {
+	     	case "23505":
+	     		return "The provided field is duplicated for this entity";
+	        case "23502":
+	            return "The provided field cannot be Empty or Null value";
+	        case "23503":
+	            return "Relationship does not exists for this entity";
+	        case "42601":
+	            return "Query is not well formed";
+	        case "08001":
+	            return "Connection failed during operation";
+	        default:
+	            return "Unable to process the content";
+		 }
+	}
 	
 	private int executeUpdate(QueryData qd) throws ResponseException {
 		
@@ -94,12 +93,18 @@ public class PostgresDataBase extends DataBase {
 			ApplicationLogger.log(Level.WARNING, "Unable to close the prepared statement", e);
 		}
 		
-		ConnectionPool.addExistingConnection(con);
+		try {
+			ConnectionPool.addExistingConnection(con);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ApplicationLogger.log(Level.WARNING, "Error while returning connection", e);
+		}
 		
 		return affectedRows;
 	}
 	
 	private Map<String, Map<String, Object>> executeQuery(QueryData qd) throws ResponseException {
+
 		Connection con;
 		
 		try {
@@ -121,9 +126,8 @@ public class PostgresDataBase extends DataBase {
 			ApplicationLogger.log(Level.SEVERE, "Error during preparing statement", e);
 			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
 		}
-		
+
 		ResultSet rs;
-		
 		try {
 			rs = pst.executeQuery();
 		} 
@@ -158,7 +162,12 @@ public class PostgresDataBase extends DataBase {
 			ApplicationLogger.log(Level.WARNING, "Unable to close the prepared statement", e);
 		}
 		
-		ConnectionPool.addExistingConnection(con);
+		try {
+			ConnectionPool.addExistingConnection(con);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ApplicationLogger.log(Level.WARNING, "Error while returning connection", e);
+		}
 		
 		return map;
 	}
@@ -216,7 +225,12 @@ public class PostgresDataBase extends DataBase {
 			ApplicationLogger.log(Level.WARNING, "Unable to close the prepared statement", e);
 		}
 		
-		ConnectionPool.addExistingConnection(con);
+		try {
+			ConnectionPool.addExistingConnection(con);
+		} catch (Exception e) {
+			e.printStackTrace();
+			ApplicationLogger.log(Level.WARNING, "Error while returning connection", e);
+		}
 		
 		return mapList;
 	}
@@ -339,7 +353,6 @@ public class PostgresDataBase extends DataBase {
 		qd.setTableColumnEntries(tableColumnEntries);
 		qd.setFieldValues(fieldValues);
 		qd.setReturnEntries(returnEntries);
-		
 		return executeQuery(qd);
 	}
 	

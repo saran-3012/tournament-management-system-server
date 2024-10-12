@@ -1,29 +1,26 @@
 package com.saran.tms.routers;
 
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
-
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
-import org.json.JSONObject;
-
-import com.saran.tms.annotations.ParentRoute;
 import com.saran.tms.annotations.Route;
+import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.controllers.Controller;
 import com.saran.tms.enums.StatusCodes;
+import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.utils.RequestParser;
@@ -59,10 +56,10 @@ public class Router {
 		List<Class<?>> controllers = getControllerClasses(packageName);
 		
 		for(Class<?> controller : controllers) {
-			if(!controller.isAnnotationPresent(ParentRoute.class)) {
+			if(!controller.isAnnotationPresent(RouteGroup.class)) {
 				continue;
 			}
-			ParentRoute parentRoute = controller.getAnnotation(ParentRoute.class);
+			RouteGroup parentRoute = controller.getAnnotation(RouteGroup.class);
 			String routeRootPath = parentRoute.path();
 			for(Method method : controller.getDeclaredMethods()) {
 				if(method.isAnnotationPresent(Route.class)) {
@@ -71,48 +68,20 @@ public class Router {
 					
 					String routePath = RequestParser.checkSlash(route.path());
 					String routeMethod = route.method();
+					UserRoles allowedRoles[] = route.allowedRoles();
 					
-					endPointMapping.put(new EndPoint(routeRootPath, routePath, routeMethod), new EndPointController(controller, method.getName(), routePath));
+					
+					endPointMapping.put(new EndPoint(routeRootPath, routePath, routeMethod), new EndPointController(controller, method.getName(), routePath, allowedRoles));
 				}
 			}
 		}
 		isInitialized = true;
 	}
 	
-	private static Map<String, String> getHeaders(HttpServletRequest request) {
-		
-		Map<String, String> reqHeaders = new HashMap<String, String>();
-		Enumeration<String> headerNames = request.getHeaderNames();
-		
-        while (headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
-            String headerValue = request.getHeader(headerName);
-            reqHeaders.put(headerName, headerValue);
-        }
-        
-        return reqHeaders;
-	}
-	
-	private static JSONObject parseBody(BufferedReader bodyReader) throws IOException {
-		StringBuilder jsonBuilder = new StringBuilder("");
-		
-		String line;
-		
-		while ((line = bodyReader.readLine()) != null) {
-		    jsonBuilder.append(line);
-		}
-		    
-		bodyReader.close();
-
-		String body = jsonBuilder.toString();
-		return new JSONObject(body);
-	}
-	
 	public static ResponseData route(HttpServletRequest request, HttpServletResponse response) throws ResponseException {
 		
 		String rootRoute = request.getServletPath();
-		String url = RequestParser.checkSlash(request.getPathInfo());
-		String truncatedUrl = RequestParser.truncateUrl(url);
+		String truncatedUrl = RequestParser.truncateUrl(RequestParser.checkSlash(request.getPathInfo()));
 		EndPointController endPointController = endPointMapping.get(new EndPoint(rootRoute, truncatedUrl, request.getMethod()));
 		
 		if(endPointController == null) {
@@ -123,26 +92,33 @@ public class Router {
 		Class<?> controllerClass = endPointController.getControllerClass();
 		String methodName = endPointController.getMethodName();
 		String routeUrl = endPointController.getUrl();
+		Set<UserRoles> allowedRoles = endPointController.getAllowedRoles();
 		
-		Map<String, String[]> queryParams = request.getParameterMap();
-		Map<String, String> reqHeaders = getHeaders(request);
-		Map<String, String> params = RequestParser.parseParams(url, routeUrl);
-		JSONObject reqBody = null;
+		HttpSession session = request.getSession(false);
 		
-
-		try {
-			String methodType = ((HttpServletRequest) request).getMethod();
-			if(!methodType.equals("GET")) {
-				reqBody = parseBody(request.getReader());
+		UserRoles userRole = null;
+		
+		if(session == null) {
+			userRole = UserRoles.USER;
+			if(!allowedRoles.contains(userRole)){ 
+				throw new ResponseException(StatusCodes.UNAUTHORIZED , "User is not authorized");
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
-			ApplicationLogger.log(Level.SEVERE, "Error while parsing request body", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
+		}
+		else {
+			
+			userRole = (UserRoles) session.getAttribute("userRole");
+			if(userRole == null) {
+				userRole = UserRoles.USER;
+			}
+			
+			if(!allowedRoles.contains(userRole)) {
+				throw new ResponseException(StatusCodes.FORBIDDEN , "User is not allowed to perform this operation");
+			}
 		}
 		
+		Map<String, String> params = RequestParser.parseParams(truncatedUrl, routeUrl);
 		
-		RequestData requestData = new RequestData(queryParams, reqHeaders, params, reqBody);
+		RequestData requestData = new RequestData(request, params);
 
 		Controller controller = null;
 		

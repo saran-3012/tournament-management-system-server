@@ -3,8 +3,8 @@ package com.saran.tms.connections;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
@@ -23,7 +23,8 @@ public class ConnectionPool {
 	private static int maxConnections;
 	private static AtomicInteger currentConnections = new AtomicInteger(0);
 	
-	final private static Queue<Connection> connectionPool = new LinkedList<>();
+	private static BlockingQueue<Connection> connectionPool;
+
 
 	private ConnectionPool(){}
 	
@@ -39,6 +40,7 @@ public class ConnectionPool {
 	
 	public static void initializeConnectionPool(int minSize, int maxSize) throws SQLException, ClassNotFoundException {
 		Class.forName("org.postgresql.Driver");
+		connectionPool  = new ArrayBlockingQueue<>(maxSize);
 		minConnections = minSize;
 		maxConnections = maxSize;
 		for(int i=0; i<minConnections; i++) {
@@ -46,39 +48,31 @@ public class ConnectionPool {
 		}
 	}
 	
-	public synchronized static Connection getConnection() throws SQLException, InterruptedException {
-	   while (connectionPool.isEmpty() && currentConnections.get() >= maxConnections) {
-		   connectionPool.wait((int) (Math.random() * 1000));
-	   }
-	   if (!connectionPool.isEmpty()) {
-		   return connectionPool.poll();
-	   }
-	   return createNewConnection();
+	public static Connection getConnection() throws InterruptedException, SQLException {
+		if(connectionPool.isEmpty() && currentConnections.get() < maxConnections) {
+			return createNewConnection();
+		}
+		return connectionPool.take();
 	}
 	
-	public synchronized static void addExistingConnection(Connection con) {
-		
-		if(connectionPool.size() >= maxConnections) {
+	public static void addExistingConnection(Connection con) throws InterruptedException {
+		if (connectionPool.size() >= maxConnections) {
 			try {
 				closeConnection(con);
-			} 
-			catch (SQLException e) {
+			} catch (SQLException e) {
 				ApplicationLogger.log(Level.WARNING, "Unable to close a connection", e);
 				e.printStackTrace();
 			}
 			return;
 		}
 		try {
-			if(!con.isClosed()) {
-				connectionPool.add(con);
-				ConnectionPool.class.notifyAll();
+			if (!con.isClosed()) {
+				connectionPool.put(con);
 			}
-		} 
-		catch (SQLException e) {
+		} catch (SQLException e) {
 			ApplicationLogger.log(Level.WARNING, "Unable to process the connection", e);
 			e.printStackTrace();
 		}
-		
 	}
 	
 	public synchronized static void fillVacantConnections() throws SQLException {
@@ -100,7 +94,6 @@ public class ConnectionPool {
 		while(!connectionPool.isEmpty()) {
 				closeConnection(connectionPool.poll());
 		}
-		
 	}
 	
 }

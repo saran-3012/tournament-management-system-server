@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.logging.Level;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -28,7 +29,9 @@ public class AuthenticationServlet extends HttpServlet {
 	protected void doPost(HttpServletRequest request, HttpServletResponse response) {
 		
 		response.setHeader("Content-Type", "Application/json");
-    	
+		response.setHeader("Cache-Control", "private,no-cache,no-store,max-age=0,must-revalidate");
+		response.setHeader("Pragma", "no-cache");
+
     	PrintWriter out = null;
     	
 		try {
@@ -43,8 +46,16 @@ public class AuthenticationServlet extends HttpServlet {
 		try {
 			ResponseData responseData = Router.route(request, response);
 			response.setStatus(responseData.getStatusCode().getStatusCode());
+				
+			if(responseData.getData() != null) {
+				out.println(responseData.getData());
+			}
 			
-			out.println(responseData.getData());
+			if(responseData.getCookies() != null) {
+				for(final Cookie cookie : responseData.getCookies()) {
+					response.addCookie(cookie);
+				}
+			}
 		} 
 		catch (ResponseException e) {
 			
