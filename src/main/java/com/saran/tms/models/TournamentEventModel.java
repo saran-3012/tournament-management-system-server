@@ -5,7 +5,7 @@ public class TournamentEventModel implements Model {
 	private Long tournamentEventId;
 	private Long tournamentEventDate;
 	private String tournamentEventVenue;
-	private String tournamentEventRound;
+	private Short tournamentEventRound;
 	private Long tournamentId;
 	private Long tournamentEventCreatedAt;
 	private Short tournamentEventStatus;
@@ -35,11 +35,11 @@ public class TournamentEventModel implements Model {
 		this.tournamentEventVenue = tournamentEventVenue;
 	}
 
-	public String getTournamentEventRound() {
+	public Short getTournamentEventRound() {
 		return tournamentEventRound;
 	}
 
-	public void setTournamentEventRound(String tournamentEventRound) {
+	public void setTournamentEventRound(Short tournamentEventRound) {
 		this.tournamentEventRound = tournamentEventRound;
 	}
 

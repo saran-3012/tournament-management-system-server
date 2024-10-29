@@ -99,7 +99,7 @@ public class UserService {
 				offset
 			);
 		if(users == null || users.isEmpty()) {
-			throw new ResponseException(StatusCodes.NOT_FOUND, "User not found");
+			users = new ArrayList<>();
 		}
 		return users;
 	}

@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 
+import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
@@ -24,6 +25,7 @@ public class RequestData {
 	private Map<String, String[]> queryParams;
 	private Map<String, String> headers;
 	private Map<String, String> params;
+	private Map<String, Cookie> cookies;
 	private JSONObject body;
 	
 	public RequestData(HttpServletRequest request, Map<String, String> params) throws ResponseException {
@@ -43,7 +45,7 @@ public class RequestData {
 		}
 	}
 
-	private static Map<String, String> getHeaders(HttpServletRequest request) {
+	private Map<String, String> getHeaders(HttpServletRequest request) {
 		
 		Map<String, String> reqHeaders = new HashMap<String, String>();
 		Enumeration<String> headerNames = request.getHeaderNames();
@@ -57,7 +59,7 @@ public class RequestData {
         return reqHeaders;
 	}
 	
-	private static JSONObject parseBody(BufferedReader bodyReader) throws IOException {
+	private JSONObject parseBody(BufferedReader bodyReader) throws IOException {
 		StringBuilder jsonBuilder = new StringBuilder("");
 		
 		String line;
@@ -73,6 +75,16 @@ public class RequestData {
 			return new JSONObject();
 		}
 		return new JSONObject(body); 
+	}
+	
+	private Map<String, Cookie> getCookies(){
+		Map<String, Cookie> cookies = new HashMap<>();
+		
+		for(Cookie cookie : request.getCookies()) {
+			cookies.put(cookie.getName(), cookie);
+		}
+		
+		return cookies;
 	}
 	
 	public Map<String, String[]> getQueryParams() {
@@ -109,5 +121,14 @@ public class RequestData {
 
 	public HttpSession getSession(boolean createdIfNotExists) {
 		return request.getSession(createdIfNotExists);
+	}
+	
+	public Cookie getCookie(String cookieName) {
+		
+		if(cookies == null) {
+			cookies = getCookies();
+		}
+		return cookies.get(cookieName);
+		
 	}
 }

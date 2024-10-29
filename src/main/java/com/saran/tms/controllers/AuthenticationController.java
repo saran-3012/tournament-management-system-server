@@ -10,8 +10,8 @@ import org.json.JSONObject;
 
 import com.saran.tms.adapters.JsonModelParser;
 import com.saran.tms.adapters.ModelJsonParser;
-import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.annotations.Route;
+import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
@@ -23,15 +23,23 @@ import com.saran.tms.services.OrganizationService;
 import com.saran.tms.services.UserService;
 import com.saran.tms.validators.ModelValidator;
 import com.saran.tms.validators.PasswordBCrypter;
+import com.saran.tms.validators.RSADecryptor;
 
 @RouteGroup(path="/auth")
 public class AuthenticationController implements Controller {
 	
 	@Route(path="/checkin", method="POST", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData checkin(RequestData request) throws ResponseException {
+		
+		Cookie jsessionCookie = request.getCookie("JSESSIONID");
+		
+		if(jsessionCookie == null) {
+			throw new ResponseException(StatusCodes.PRECONDITION_REQUIRED, "Login to continue");
+		}
+		
 		HttpSession session = request.getSession(false);
 		if(session == null) {
-			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Session Expired");
+			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Session Expired, Login again");
 		}
 		
 		Long requestUserId = request.getUserId();
@@ -41,7 +49,7 @@ public class AuthenticationController implements Controller {
 		
 		if(user == null || user.getRole() != userRole.getRolePriority()) {
 			session.invalidate();
-			throw new ResponseException(StatusCodes.NOT_FOUND, "Session Expired");
+			throw new ResponseException(StatusCodes.NOT_FOUND, "Invalid session, Login again");
 		}
 		
 		user.setPassword(null);
@@ -62,19 +70,27 @@ public class AuthenticationController implements Controller {
 		JSONObject reqBody = request.getBody();
 			
 		String userEmail = reqBody.getString("email").toLowerCase();
-		String userPassword = reqBody.getString("password");
+		
+		String encryptedPassword = reqBody.getString("password");
+		String privateKeyFilePath = System.getenv("PRIVATE_KEY_PATH");
+		String decryptedPassword = RSADecryptor.decrypt(encryptedPassword, privateKeyFilePath);
 		
 		
-		UserModel user = UserService.findUserByEmail(Map.ofEntries(Map.entry("email", userEmail)));
+		UserModel user = null;
+		
+		try {
+			user = UserService.findUserByEmail(Map.ofEntries(Map.entry("email", userEmail)));
+		}
+		catch(Exception e) {}
 		
 		if(user == null) {
-			throw new ResponseException(StatusCodes.NOT_FOUND, "User not found");
+			throw new ResponseException(StatusCodes.UNAUTHORIZED, "User credentials are invalid");
 		}
 		
 		String hashedPassword = user.getPassword();
 		user.setPassword(null);
 		
-		boolean isMatches = PasswordBCrypter.verifyPassword(userPassword, hashedPassword);
+		boolean isMatches = PasswordBCrypter.verifyPassword(decryptedPassword, hashedPassword);
 			
 		if(!isMatches) {
 			throw new ResponseException(StatusCodes.UNAUTHORIZED, "User credentials are invalid");
@@ -87,14 +103,20 @@ public class AuthenticationController implements Controller {
 		session.setAttribute("user-agent", headers.get("user-agent"));
 		session.setAttribute("sec-ch-ua", headers.get("sec-ch-ua"));
 		session.setAttribute("sec-ch-ua-platform", headers.get("sec-ch-ua-platform"));
-		session.setAttribute("accept-language", headers.get("accept-language"));
 
 		Long userId = (Long) user.getUserId();
 		Short userRole = (Short) user.getRole();
+		Long organizationId = (Long) user.getOrganizationId();
 		
 		session.setAttribute("userId", userId);
 		session.setAttribute("userRole", UserRoles.getUserRole(userRole));
+		session.setAttribute("organizationId", organizationId);
 		session.setMaxInactiveInterval(86400);
+		
+		Cookie jsessionCookie = new Cookie("JSESSIONID", session.getId());  
+		jsessionCookie.setMaxAge(86400);  
+		jsessionCookie.setHttpOnly(true);
+		jsessionCookie.setPath("/tms"); 
 			
 		JSONObject userData = ModelJsonParser.parse(user);
 		
@@ -102,7 +124,7 @@ public class AuthenticationController implements Controller {
 		jsonData.put("data", userData);
 		jsonData.put("message", "User logged in successfully");
 		
-		return new ResponseData(StatusCodes.OK, jsonData);
+		return new ResponseData(StatusCodes.OK, jsonData).addCookie(jsessionCookie);
 
 	}
 	
@@ -156,7 +178,13 @@ public class AuthenticationController implements Controller {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Organization is not specified properly");
 		}
 		
-		String hashedPassword = PasswordBCrypter.encryptPassword(user.getPassword());
+//		Decrypt the encrypted password to normal text
+		String encryptedPassword = user.getPassword();
+		String privateKeyFilePath = System.getenv("PRIVATE_KEY_PATH");
+		String decryptedPassword = RSADecryptor.decrypt(encryptedPassword, privateKeyFilePath);
+
+//		Hash the decrypted password
+		String hashedPassword = PasswordBCrypter.encryptPassword(decryptedPassword);
 		
 		user.setOrganizationId(organizationId);
 		user.setRole(role);
@@ -201,7 +229,7 @@ public class AuthenticationController implements Controller {
 		JSONObject reqBody = request.getBody();
 		
 		Long userId = reqBody.optLong("userId");
-		
+
 		if(userId == null) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "User id not provided");
 		}
@@ -209,6 +237,8 @@ public class AuthenticationController implements Controller {
 		UserModel user = UserService.findUserById(Map.ofEntries(Map.entry("user_id", userId.toString())));
 		
 		String newPassword = null;
+		
+		String privateKeyFilePath = System.getenv("PRIVATE_KEY_PATH");
 		
 		switch(userRole) {
 			case ORGANIZATION_MEMBER:
@@ -220,7 +250,10 @@ public class AuthenticationController implements Controller {
 				if(oldPassword == null) {
 					throw new ResponseException(StatusCodes.UNAUTHORIZED, "Old password not provided");
 				}
-				boolean isMatches = PasswordBCrypter.verifyPassword(oldPassword, hashedPassword);
+				
+				String decryptedOldPassword = RSADecryptor.decrypt(oldPassword, privateKeyFilePath);
+				
+				boolean isMatches = PasswordBCrypter.verifyPassword(decryptedOldPassword, hashedPassword);
 				if(!isMatches) {
 					throw new ResponseException(StatusCodes.UNAUTHORIZED, "Invalid credentials");
 				}
@@ -247,7 +280,10 @@ public class AuthenticationController implements Controller {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "New Password is not provided");
 		}
 		
-		String hashedPassword = PasswordBCrypter.encryptPassword(newPassword);
+		String decryptedNewPassword = RSADecryptor.decrypt(newPassword, privateKeyFilePath);
+		
+		
+		String hashedPassword = PasswordBCrypter.encryptPassword(decryptedNewPassword);
 		
 		UserModel passwordUpdatedUser = new UserModel();
 		

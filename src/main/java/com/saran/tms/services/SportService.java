@@ -34,6 +34,20 @@ public class SportService {
 		return sport;
 	}
 	
+	public static SportModel findSport(SportModel sport) throws ResponseException {
+		Dao sportDao = new Dao(SportModel.class);
+		SportModel reqSport = (SportModel) sportDao.findOne(
+				Arrays.asList("*"), 
+				Arrays.asList(
+					new ConditionEntry(null, "sport_name", Arrays.asList(Operators.ILIKE), sport.getSportName()),
+					new ConditionEntry(Arrays.asList(Operators.AND), "sport_type", Arrays.asList(Operators.EQUAL), sport.getSportType()),
+					new ConditionEntry(Arrays.asList(Operators.AND), "team_size", Arrays.asList(Operators.EQUAL), sport.getTeamSize())
+				)
+			);
+		
+		return reqSport;
+	}
+	
 	public static List<Model> findSports(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
 		Dao sportDao = new Dao(SportModel.class);
 		

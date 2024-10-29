@@ -54,6 +54,8 @@ public class ModelJsonParser {
 
 		for(Model model : models) {
 			
+			if(model == null) continue;
+			
 			Class<?> modelClass = model.getClass();
 			Field fields[] = modelClass.getDeclaredFields();			
 			

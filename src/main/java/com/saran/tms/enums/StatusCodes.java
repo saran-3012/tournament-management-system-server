@@ -16,6 +16,7 @@ public enum StatusCodes {
 	PRECONDITION_FAILED(412, "Preconditions failed"),
 	UNSUPPORTED_MEDIA_TYPE(415, "Unsupported media format"),
 	UNPROCESSABLE_CONTENT(422, "Unprocessable content"),
+	PRECONDITION_REQUIRED(428, "Precondition required"),
 	TOO_MANY_REQUESTS(429, "Too many requests"),
 	INTERNAL_SERVER_ERROR(500, "Internal server error"),
 	SERVICE_UNAVAILABLE(503, "Service is unavailable");

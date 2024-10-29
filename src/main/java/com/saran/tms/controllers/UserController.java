@@ -18,13 +18,15 @@ import com.saran.tms.models.UserModel;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.UserService;
+import com.saran.tms.validators.PasswordBCrypter;
+import com.saran.tms.validators.RSADecryptor;
 
 
 @RouteGroup(path="/api/v1")
 public class UserController implements Controller{
 	
 	
-	@Route(path="/orgs/:org_id/users", method="POST")
+	@Route(path="/orgs/:org_id/users", method="POST", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
 	public ResponseData saveUser(RequestData request) throws ResponseException {
 		
 		JSONObject reqBody = request.getBody();
@@ -32,11 +34,31 @@ public class UserController implements Controller{
 
 		UserModel user = (UserModel) JsonModelParser.parse(reqBody, UserModel.class);
 		
-		Long organizationId = Long.parseLong(params.get("org_id"));
+		Long organizationId = null;
+		
+		try {
+			organizationId = Long.parseLong(params.get("org_id"));	
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.UNPROCESSABLE_CONTENT, "Invalid organization id");
+		}
 		
 		if(organizationId != null) {
 			user.setOrganizationId(organizationId);
 		}
+		
+		UserRoles userRole = request.getUserRole();
+		
+		if(userRole == UserRoles.ORGANIZATION_ADMIN) {
+			user.setRole((short) 0);
+		}
+		
+		String encryptedPassword = user.getPassword();
+		String privateKeyFilePath = System.getenv("PRIVATE_KEY_PATH");
+		String decryptedPassword = RSADecryptor.decrypt(encryptedPassword, privateKeyFilePath);
+		String hashedPassword = PasswordBCrypter.encryptPassword(decryptedPassword);
+		
+		user.setPassword(hashedPassword);	
 			
 		UserModel newUser = UserService.saveUser(user);
 		newUser.setPassword(null);

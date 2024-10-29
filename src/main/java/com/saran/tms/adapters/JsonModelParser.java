@@ -74,4 +74,17 @@ public class JsonModelParser {
 		
 		return models;
 	}
+	
+	public static List<Model> parse(JSONArray jsonArray, Class<? extends Model> modelClass) throws ResponseException {
+		
+		List<Model> models = new ArrayList<>();
+		
+		int n = jsonArray.length();
+		
+		for(int i=0; i<n; i++) {
+			models.add(parse(jsonArray.getJSONObject(i), modelClass));
+		}
+		
+		return models;
+	}
 }

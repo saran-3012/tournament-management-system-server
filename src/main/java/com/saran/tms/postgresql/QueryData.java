@@ -22,7 +22,7 @@ public class QueryData {
 	private List<OrderEntry> orderEntries;
 	private List<String> returnEntries;
 	
-	private Map<String, Functions> fieldFunctions;
+	private Map<GroupEntry, Functions> fieldFunctions;
 	
 	private Integer limit;
 	private Integer offset;
@@ -31,7 +31,7 @@ public class QueryData {
 
 	public QueryData(CRUD operation, List<TableColumnEntry> tableColumnEntries, List<List<Object>> fieldValues,
 			List<JoinEntry> joinEntries, List<TableConditionEntry> conditionEntries, List<GroupEntry> groupEntries,
-			List<OrderEntry> orderEntries, List<String> returnEntries, Map<String, Functions> fieldFunctions,
+			List<OrderEntry> orderEntries, List<String> returnEntries, Map<GroupEntry, Functions> fieldFunctions,
 			Integer limit, Integer offset) {
 		super();
 		this.operation = operation;
@@ -111,11 +111,11 @@ public class QueryData {
 		this.returnEntries = returnEntries;
 	}
 
-	public Map<String, Functions> getFieldFunctions() {
+	public Map<GroupEntry, Functions> getFieldFunctions() {
 		return fieldFunctions;
 	}
 
-	public void setFieldFunctions(Map<String, Functions> fieldFunctions) {
+	public void setFieldFunctions(Map<GroupEntry, Functions> fieldFunctions) {
 		this.fieldFunctions = fieldFunctions;
 	}
 

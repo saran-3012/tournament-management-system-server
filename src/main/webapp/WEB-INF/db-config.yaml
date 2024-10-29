@@ -7,6 +7,35 @@ database:
 
 # Table configuration
 tables: 
+  # for aggregate queries
+  - tableName: ""
+    modelName: AggregateModel
+    columns:
+      - columnName: count
+        fieldName: count
+        dataType: Long
+        constraints: []
+
+      - columnName: sum
+        fieldName: sum
+        dataType: Long
+        constraints: []
+
+      - columnName: min
+        fieldName: min
+        dataType: Long
+        constraints: []
+
+      - columnName: max
+        fieldName: max
+        dataType: Long
+        constraints: []
+
+      - columnName: avg
+        fieldName: avg
+        dataType: Long
+        constraints: []
+
   # sports table
   - tableName: sports
     modelName: SportModel
@@ -159,7 +188,7 @@ tables:
         constraints: [not_null]
 
       - columnName: tournament_venue
-        fieldName: venue
+        fieldName: tournamentVenue
         dataType: String
         constraints: []
 

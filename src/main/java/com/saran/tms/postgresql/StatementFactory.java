@@ -10,6 +10,8 @@ import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.pojo.ConditionEntry;
+import com.saran.tms.pojo.JoinConditionEntry;
+import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.TableConditionEntry;
 
 public class StatementFactory {
@@ -56,8 +58,17 @@ public class StatementFactory {
 		return pst;
 	}
 
-	private static PreparedStatement prepareSelectStatement(PreparedStatement pst, List<TableConditionEntry> tableConditionEntries, Integer limit, Integer offset) throws SQLException {
+	private static PreparedStatement prepareSelectStatement(PreparedStatement pst, List<JoinEntry> joinEntries, List<TableConditionEntry> tableConditionEntries, Integer limit, Integer offset) throws SQLException {
 		int parameterIndex = 1;
+		
+		if(joinEntries != null) {
+			for(JoinEntry joinEntry : joinEntries) {
+				if(joinEntry.getType() == 1) {
+					JoinConditionEntry jce = (JoinConditionEntry) joinEntry;
+					setObject(pst, parameterIndex++, jce.getValue());
+				}
+			}
+		}
 		
 		if(tableConditionEntries != null) {
 			for(TableConditionEntry tableConditionEntry : tableConditionEntries) {
@@ -139,7 +150,7 @@ public class StatementFactory {
 			case CREATE:
 				return prepareInsertStatement(pst, query.getFieldValues());
 			case READ:
-				return prepareSelectStatement(pst, query.getConditionEntries(), query.getLimit(), query.getOffset());
+				return prepareSelectStatement(pst, query.getJoinEntries(), query.getConditionEntries(), query.getLimit(), query.getOffset());
 			case UPDATE:
 				return prepareUpdateStatement(pst, query.getFieldValues(), query.getConditionEntries());
 			case DELETE:

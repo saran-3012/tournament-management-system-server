@@ -44,9 +44,9 @@ public class QueryFactory {
 		return qb.build();
 	}
 	
-	private static String buildSelectQuery(List<TableColumnEntry> tableColumnEntries, Map<String, Functions> fieldFunctions, List<JoinEntry> joinEntries, List<TableConditionEntry> conditionEntries, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws IllegalArgumentException, ResponseException {
+	private static String buildSelectQuery(List<TableColumnEntry> tableColumnEntries, Map<GroupEntry, Functions> fieldFunctions, List<JoinEntry> joinEntries, List<TableConditionEntry> conditionEntries, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws IllegalArgumentException, ResponseException {
 		QueryBuilder qb = new QueryBuilder();
-		
+
 		qb.select()
 			.tableColumnsWithFunctions(tableColumnEntries, fieldFunctions)
 			.from(tableColumnEntries.get(0).getTableName().getTableName())

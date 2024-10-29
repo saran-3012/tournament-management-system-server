@@ -4,6 +4,9 @@ import com.saran.tms.enums.JoinTypes;
 import com.saran.tms.enums.TableNames;
 
 public class JoinEntry {
+	
+	private static final int type = 0;
+	
 	private TableNames tableName1;
 	private TableNames tableName2;
 	private String columnName1;
@@ -59,6 +62,9 @@ public class JoinEntry {
 	public void setJoinType(JoinTypes joinType) {
 		this.joinType = joinType;
 	}
-	
+
+	public int getType() {
+		return type;
+	}
 	
 }

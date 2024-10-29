@@ -1,5 +1,6 @@
 package com.saran.tms.postgresql;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +13,7 @@ import com.saran.tms.enums.TableNames;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.pojo.ConditionEntry;
 import com.saran.tms.pojo.GroupEntry;
+import com.saran.tms.pojo.JoinConditionEntry;
 import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.OrderEntry;
 import com.saran.tms.pojo.TableColumnEntry;
@@ -181,7 +183,7 @@ private StringBuilder queryBuilder;
 		return this.function(attribute, function.getFunction());
 	}
 	
-	public QueryBuilder fieldsWithFunctions(List<String> fieldNames, Map<String, Functions> fieldFunctions) {
+	public QueryBuilder fieldsWithFunctions(List<String> fieldNames, Map<GroupEntry, Functions> fieldFunctions) {
 		
 		
 		if(fieldNames == null || fieldNames.isEmpty()) {
@@ -195,18 +197,18 @@ private StringBuilder queryBuilder;
 		int n = fieldNames.size();
 		
 		String fieldName = fieldNames.get(0);
-		this.fieldWithFunction(fieldName, fieldFunctions.get(fieldName));
+		this.fieldWithFunction(fieldName, fieldFunctions.get(new GroupEntry(null, fieldName)));
 		
 		for(int i=1; i<n; i++) {
 			fieldName = fieldNames.get(i);
 			this.comma();
-			this.fieldWithFunction(fieldName, fieldFunctions.get(fieldName));
+			this.fieldWithFunction(fieldName, fieldFunctions.get(new GroupEntry(null, fieldName)));
 		}
 		
 		return this;
 	}
 	
-	public QueryBuilder tableFieldsWithFunctions(TableNames tableName, List<String> fieldNames, Map<String, Functions> fieldFunctions) {
+	public QueryBuilder tableFieldsWithFunctions(TableNames tableName, List<String> fieldNames, Map<GroupEntry, Functions> fieldFunctions) {
 		if(fieldNames == null || fieldNames.isEmpty()) {
 			return this;
 		}
@@ -218,18 +220,19 @@ private StringBuilder queryBuilder;
 		int n = fieldNames.size();
 		
 		String fieldName = fieldNames.get(0);
-		this.fieldWithFunction(tableName.getTableName() + '.' + fieldName, fieldFunctions.get(tableName.getTableName() + '.' + fieldName));
+		
+		this.fieldWithFunction(tableName.getTableName() + '.' + fieldName, fieldFunctions.get(new GroupEntry(tableName, fieldName)));
 		
 		for(int i=1; i<n; i++) {
 			fieldName = fieldNames.get(i);
 			this.comma();
-			this.fieldWithFunction(tableName.getTableName() + '.' + fieldName, fieldFunctions.get(tableName.getTableName() + '.' + fieldName));
+			this.fieldWithFunction(tableName.getTableName() + '.' + fieldName, fieldFunctions.get(new GroupEntry(tableName, fieldName)));
 		}
 		
 		return this;
 	}
 	
-	public QueryBuilder tableFieldsWithFunctions(TableColumnEntry tableColumnEntry, Map<String, Functions> fieldFunctions) throws ResponseException {
+	public QueryBuilder tableFieldsWithFunctions(TableColumnEntry tableColumnEntry, Map<GroupEntry, Functions> fieldFunctions) throws ResponseException {
 		
 		if(fieldFunctions == null) {
 			return this.tableColumnFields(tableColumnEntry);
@@ -240,7 +243,7 @@ private StringBuilder queryBuilder;
 		return this;
 	}
 	
-	public QueryBuilder tableColumnsWithFunctions(List<TableColumnEntry> tableColumnEntries, Map<String, Functions> fieldFunctions) throws ResponseException {
+	public QueryBuilder tableColumnsWithFunctions(List<TableColumnEntry> tableColumnEntries, Map<GroupEntry, Functions> fieldFunctions) throws ResponseException {
 		
 		if(tableColumnEntries == null || tableColumnEntries.isEmpty()) {
 			return this;
@@ -552,7 +555,16 @@ private StringBuilder queryBuilder;
 		}
 		
 		for(JoinEntry joinEntry : joinEntries) {
-			this.joinWithOn(joinEntry.getTableName1(), joinEntry.getTableName2(), joinEntry.getColumnName1(), joinEntry.getColumnName2(), joinEntry.getJoinType());
+			switch(joinEntry.getType()) {
+				case 0:
+					this.joinWithOn(joinEntry.getTableName1(), joinEntry.getTableName2(), joinEntry.getColumnName1(), joinEntry.getColumnName2(), joinEntry.getJoinType());
+					break;
+				case 1:
+					JoinConditionEntry jce = (JoinConditionEntry) joinEntry;
+					this.condition(jce.getConditionTableName(), jce.getConditionColumnName(), Arrays.asList(jce.getPrefixOperator()), Arrays.asList(jce.getSuffixOperator()));
+					break;
+				default:
+			}
 		}
 		
 		return this;

@@ -18,7 +18,6 @@ public class ResultSetMapParser {
 		if(rs.next()) {
 			
 			for(int i=1; i<=columnCount; i++) {
-				
 				String tableName = rsmd.getTableName(i);
 				String columnName = rsmd.getColumnName(i);
 				
@@ -47,6 +46,7 @@ public class ResultSetMapParser {
 				String tableName = rsmd.getTableName(i);
 				String columnName = rsmd.getColumnName(i);
 				
+				
 				Map<String, Object> rowMap = tableMap.getOrDefault(tableName, new HashMap<>());
 				rowMap.put(columnName, rs.getObject(i));
 				
@@ -54,6 +54,9 @@ public class ResultSetMapParser {
 				
 			}
 			tableMapList.add(tableMap);
+			
+			System.out.println();
+			System.out.println();
 		}
 		
 		return tableMapList;

@@ -4,7 +4,7 @@ public enum JoinTypes {
 	JOIN("JOIN"),
 	LEFT_JOIN("LEFT JOIN"),
 	RIGHT_JOIN("RIGHT JOIN"),
-	OUTER_JOIN("OUTER JOIN");
+	OUTER_JOIN("FULL OUTER JOIN");
 	
 	private String joinType;
 	

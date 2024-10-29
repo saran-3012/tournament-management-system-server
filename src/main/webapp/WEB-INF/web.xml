@@ -35,6 +35,8 @@
     </listener>
     
     <!-- CORS Filter -->
+
+    
     <filter>
         <filter-name>CorsFilter</filter-name>
         <filter-class>com.saran.tms.filters.CorsFilter</filter-class>
@@ -49,6 +51,9 @@
         <filter-name>CorsFilter</filter-name>
         <url-pattern>/auth/*</url-pattern>
     </filter-mapping>
+    
+
+    
     
     <!-- Auth Filter -->
     <filter>
@@ -92,5 +97,11 @@
          <servlet-name>Authentication</servlet-name>
          <url-pattern>/auth/*</url-pattern>
     </servlet-mapping>
+    
+    
+    <error-page>
+    	<error-code>404</error-code>
+    	<location>/error-404.html</location>
+	</error-page>
     
 </web-app>

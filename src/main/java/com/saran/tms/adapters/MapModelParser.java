@@ -16,13 +16,8 @@ import com.saran.tms.utils.Accessor;
 public class MapModelParser {
 	
 	private static String packageName = DataBaseConfig.getModelPackage();
-
 	
 	public static Model convertToObject(String className, Map<String, Object> objectMap) throws ResponseException {
-		
-		if(objectMap == null || objectMap.isEmpty()) {
-			return null;
-		}
 		
 		Model obj = null;
 		
@@ -36,6 +31,11 @@ public class MapModelParser {
 			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
 
 		}
+		
+		if(objectMap == null || objectMap.isEmpty()) {
+			return null;
+		}
+		
 		Class<?> objectClass = obj.getClass();
 		
 		TableConfig tableConfig = DataBaseConfig.getTableConfigByModelName(objectClass.getSimpleName());

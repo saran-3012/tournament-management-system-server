@@ -497,7 +497,7 @@ public class PostgresDataBase implements DataBase {
 		return executeOperation(qd);
 	}
 	
-	public List<Map<String, Map<String, Object>>> findAll(TableColumnEntry requiredFields, TableConditionEntry requiredContitions, Map<String, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
+	public List<Map<String, Map<String, Object>>> findAll(TableColumnEntry requiredFields, TableConditionEntry requiredContitions, Map<GroupEntry, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
 		
 		TableNames tableName = requiredFields.getTableName();
 		
@@ -524,7 +524,7 @@ public class PostgresDataBase implements DataBase {
 		
 	}
 	
-	public List<Map<String, Map<String, Object>>> findAll(TableColumnEntry requiredFields, TableConditionEntry requiredContitions, Map<String, Functions> fieldFunctions, List<GroupEntry> groupEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<Map<String, Map<String, Object>>> findAll(TableColumnEntry requiredFields, TableConditionEntry requiredContitions, Map<GroupEntry, Functions> fieldFunctions, List<GroupEntry> groupEntries, Integer limit, Integer offset) throws ResponseException {
 		TableNames tableName = requiredFields.getTableName();
 		
 		if(tableName != requiredContitions.getTableName()) {
@@ -550,7 +550,7 @@ public class PostgresDataBase implements DataBase {
 		return executeOperation(qd);
 	}
 	
-	public List<Map<String, Map<String, Object>>> findAll(TableColumnEntry requiredFields, TableConditionEntry requiredContitions, Map<String, Functions> fieldFunctions, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<Map<String, Map<String, Object>>> findAll(TableColumnEntry requiredFields, TableConditionEntry requiredContitions, Map<GroupEntry, Functions> fieldFunctions, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
 		TableNames tableName = requiredFields.getTableName();
 		
 		if(tableName != requiredContitions.getTableName()) {
@@ -687,7 +687,7 @@ public class PostgresDataBase implements DataBase {
 		return executeOperation(qd);
 	}
 	
-	public List<Map<String, Map<String, Object>>> findAllWithJoin(List<TableColumnEntry> requiredTablefields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<String, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
+	public List<Map<String, Map<String, Object>>> findAllWithJoin(List<TableColumnEntry> requiredTablefields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<GroupEntry, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
 		if(requiredTablefields == null || requiredTablefields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not provided");
 		}
@@ -708,7 +708,7 @@ public class PostgresDataBase implements DataBase {
 		return executeOperation(qd);
 	}
 	
-	public List<Map<String, Map<String, Object>>> findAllWithJoin(List<TableColumnEntry> requiredTablefields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<String, Functions> fieldFunctions, List<GroupEntry> groupEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<Map<String, Map<String, Object>>> findAllWithJoin(List<TableColumnEntry> requiredTablefields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<GroupEntry, Functions> fieldFunctions, List<GroupEntry> groupEntries, Integer limit, Integer offset) throws ResponseException {
 		if(requiredTablefields == null || requiredTablefields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not provided");
 		}
@@ -730,7 +730,7 @@ public class PostgresDataBase implements DataBase {
 		return executeOperation(qd);
 	}
 	
-	public List<Map<String, Map<String, Object>>> findAllWithJoin(List<TableColumnEntry> requiredTablefields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<String, Functions> fieldFunctions, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<Map<String, Map<String, Object>>> findAllWithJoin(List<TableColumnEntry> requiredTablefields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<GroupEntry, Functions> fieldFunctions, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
 		if(requiredTablefields == null || requiredTablefields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not provided");
 		}
@@ -746,6 +746,7 @@ public class PostgresDataBase implements DataBase {
 		qd.setConditionEntries(requiredTableConditions);
 		qd.setFieldFunctions(fieldFunctions);
 		qd.setGroupEntries(groupEntries);
+		qd.setOrderEntries(orderEntries);
 		qd.setLimit(limit);
 		qd.setOffset(offset);
 		
@@ -767,6 +768,7 @@ public class PostgresDataBase implements DataBase {
 		qd.setJoinEntries(joinEntries);
 		qd.setConditionEntries(requiredTableConditions);
 		qd.setGroupEntries(groupEntries);
+		qd.setOrderEntries(orderEntries);
 		qd.setLimit(limit);
 		qd.setOffset(offset);
 		
@@ -787,6 +789,7 @@ public class PostgresDataBase implements DataBase {
 		qd.setTableColumnEntries(requiredTablefields);
 		qd.setJoinEntries(joinEntries);
 		qd.setConditionEntries(requiredTableConditions);
+		qd.setOrderEntries(orderEntries);
 		qd.setLimit(limit);
 		qd.setOffset(offset);
 		

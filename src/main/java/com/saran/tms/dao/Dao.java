@@ -1,6 +1,7 @@
 package com.saran.tms.dao;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -151,7 +152,7 @@ public class Dao {
 		return models;
 	}
 	
-	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions,  Map<String, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
+	public List<List<Model>> findAll(List<String> requiredFields, List<ConditionEntry> requiredConditions,  Map<GroupEntry, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
 		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
@@ -165,16 +166,22 @@ public class Dao {
 				offset
 			);
 		
-		List<Model> models = new ArrayList<>();
+		List<List<Model>> models = new ArrayList<>();
 		
 		for(Map<String, Map<String, Object>> objMap : objMapList) {
-			models.add(MapModelParser.convertToObject(modelName, objMap.get(tableName)));
+			
+			models.add(
+				Arrays.asList( 
+					MapModelParser.convertToObject("AggregateModel", objMap.get("")),
+					MapModelParser.convertToObject(modelName, objMap.get(tableName))
+				)
+			);
 		}
 		
 		return models;
 	}
 	
-	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredContitions,  Map<String, Functions> fieldFunctions, List<String> groupFields, Integer limit, Integer offset) throws ResponseException {
+	public List<List<Model>> findAll(List<String> requiredFields, List<ConditionEntry> requiredContitions,  Map<GroupEntry, Functions> fieldFunctions, List<String> groupFields, Integer limit, Integer offset) throws ResponseException {
 		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
@@ -199,16 +206,22 @@ public class Dao {
 				offset
 			);
 		
-		List<Model> models = new ArrayList<>();
+		List<List<Model>> models = new ArrayList<>();
 		
 		for(Map<String, Map<String, Object>> objMap : objMapList) {
-			models.add(MapModelParser.convertToObject(modelName, objMap.get(tableName)));
+			
+			models.add(
+				Arrays.asList( 
+					MapModelParser.convertToObject("AggregateModel", objMap.get("")),
+					MapModelParser.convertToObject(modelName, objMap.get(tableName))
+				)
+			);
 		}
 		
 		return models;
 	} 
 	
-	public List<Model> findAll(List<String> requiredFields, List<ConditionEntry> requiredContitions,  Map<String, Functions> fieldFunctions, List<String> groupFields, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<List<Model>> findAll(List<String> requiredFields, List<ConditionEntry> requiredContitions,  Map<GroupEntry, Functions> fieldFunctions, List<String> groupFields, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
 		if(requiredFields == null || requiredFields.isEmpty()) {
 			throw new IllegalArgumentException("Required fields are not mentioned");
 		}
@@ -245,10 +258,16 @@ public class Dao {
 				offset
 			);
 		
-		List<Model> models = new ArrayList<>();
+		List<List<Model>> models = new ArrayList<>();
 		
 		for(Map<String, Map<String, Object>> objMap : objMapList) {
-			models.add(MapModelParser.convertToObject(modelName, objMap.get(tableName)));
+			
+			models.add(
+				Arrays.asList( 
+					MapModelParser.convertToObject("AggregateModel", objMap.get("")),
+					MapModelParser.convertToObject(modelName, objMap.get(tableName))
+				)
+			);
 		}
 		
 		return models;
@@ -489,7 +508,7 @@ public class Dao {
 		return modelsList;
 	}
 	
-	public List<List<Model>> findAllWithJoin(List<TableColumnEntry> requiredTableFields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<String, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
+	public List<List<Model>> findAllWithJoin(List<TableColumnEntry> requiredTableFields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<GroupEntry, Functions> fieldFunctions, Integer limit, Integer offset) throws ResponseException {
 		if(requiredTableFields == null) {
 			throw new IllegalArgumentException("Required fields not provided");
 		}
@@ -512,6 +531,8 @@ public class Dao {
 		for(Map<String, Map<String, Object>> objMap : objMapList) {
 			List<Model> models = new ArrayList<>();
 			
+			models.add(MapModelParser.convertToObject("AggregateModel", objMap.remove("")));
+			
 			for(Map.Entry<String, Map<String, Object>>  objEntry : objMap.entrySet()) {
 				String tableName = objEntry.getKey();
 				Map<String, Object> tableMap = objEntry.getValue();
@@ -527,7 +548,7 @@ public class Dao {
 		return modelsList;
 	}
 	
-	public List<List<Model>> findAllWithJoin(List<TableColumnEntry> requiredTableFields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<String, Functions> fieldFunctions, List<GroupEntry> groupEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<List<Model>> findAllWithJoin(List<TableColumnEntry> requiredTableFields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<GroupEntry, Functions> fieldFunctions, List<GroupEntry> groupEntries, Integer limit, Integer offset) throws ResponseException {
 		if(requiredTableFields == null) {
 			throw new IllegalArgumentException("Required fields not provided");
 		}
@@ -552,6 +573,8 @@ public class Dao {
 		
 		for(Map<String, Map<String, Object>> objMap : objMapList) {
 			List<Model> models = new ArrayList<>();
+
+			models.add(MapModelParser.convertToObject("AggregateModel", objMap.remove("")));
 			
 			for(Map.Entry<String, Map<String, Object>>  objEntry : objMap.entrySet()) {
 				String tableName = objEntry.getKey();
@@ -568,7 +591,7 @@ public class Dao {
 		return modelsList;
 	}
 	
-	public List<List<Model>> findAllWithJoin(List<TableColumnEntry> requiredTableFields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<String, Functions> fieldFunctions, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
+	public List<List<Model>> findAllWithJoin(List<TableColumnEntry> requiredTableFields, List<JoinEntry> joinEntries, List<TableConditionEntry> requiredTableConditions, Map<GroupEntry, Functions> fieldFunctions, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws ResponseException {
 		if(requiredTableFields == null) {
 			throw new IllegalArgumentException("Required fields not provided");
 		}
@@ -596,6 +619,8 @@ public class Dao {
 		
 		for(Map<String, Map<String, Object>> objMap : objMapList) {
 			List<Model> models = new ArrayList<>();
+			
+			models.add(MapModelParser.convertToObject("AggregateModel", objMap.remove("")));
 			
 			for(Map.Entry<String, Map<String, Object>>  objEntry : objMap.entrySet()) {
 				String tableName = objEntry.getKey();

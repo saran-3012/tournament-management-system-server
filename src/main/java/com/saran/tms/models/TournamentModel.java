@@ -7,7 +7,7 @@ public class TournamentModel implements Model {
 	private Short maxParticipation;
 	private Long registrationStartDate;
 	private Long registrationEndDate;
-	private String venue;
+	private String tournamentVenue;
 	private Long tournamentDate;
 	private Short tournamentStatus;
 	private Long sportId;
@@ -54,12 +54,12 @@ public class TournamentModel implements Model {
 		this.registrationEndDate = registrationEndDate;
 	}
 
-	public String getVenue() {
-		return venue;
+	public String getTournamentVenue() {
+		return tournamentVenue;
 	}
 
-	public void setVenue(String venue) {
-		this.venue = venue;
+	public void setTournamentVenue(String tournamentVenue) {
+		this.tournamentVenue = tournamentVenue;
 	}
 
 	public Long getTournamentDate() {
@@ -106,7 +106,7 @@ public class TournamentModel implements Model {
 	public String toString() {
 		return "TournamentModel [tournamentId=" + tournamentId + ", tournamentName=" + tournamentName
 				+ ", maxParticipation=" + maxParticipation + ", registrationStartDate=" + registrationStartDate
-				+ ", registrationEndDate=" + registrationEndDate + ", venue=" + venue + ", tournamentDate="
+				+ ", registrationEndDate=" + registrationEndDate + ", tournamentVenue=" + tournamentVenue + ", tournamentDate="
 				+ tournamentDate + ", tournamentStatus=" + tournamentStatus + ", sportId=" + sportId
 				+ ", organizationId=" + organizationId + ", tournamentCreatedAt=" + tournamentCreatedAt + "]";
 	}

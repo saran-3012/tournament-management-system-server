@@ -20,15 +20,19 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.saran.tms.adapters.MapModelParser;
+import com.saran.tms.adapters.ModelJsonParser;
 import com.saran.tms.adapters.ModelMapParser;
 import com.saran.tms.config.DataBaseConfig;
 import com.saran.tms.config.TableConfig;
 import com.saran.tms.connections.ConnectionManager;
 import com.saran.tms.connections.ConnectionPool;
+import com.saran.tms.dao.Dao;
+import com.saran.tms.enums.Functions;
 import com.saran.tms.enums.JoinTypes;
 import com.saran.tms.enums.Operators;
 import com.saran.tms.enums.TableNames;
@@ -393,7 +397,25 @@ public class Main {
 //        	ex.printStackTrace();
 //        }
 
-	
+		
+////		Aggregate Functions test start
+//		
+//		Dao ud = new Dao(UserModel.class);
+//		
+//		Map<GroupEntry, Functions> fieldFunctions = new HashMap<>();
+//		
+//		fieldFunctions.put(new GroupEntry(TableNames.USERS, "*"), Functions.COUNT);
+//		
+//		try {
+//			for(List<Model> data : ud.findAll(Arrays.asList("*"), new ArrayList<>(), fieldFunctions, null, null)) {
+//				System.out.println(ModelJsonParser.parseAndMerge(data));
+//			}
+//		} catch (ResponseException e) {
+//			e.printStackTrace();
+//		}
+//	
+////		Aggregate Functions test end
+
 	}
 
 }

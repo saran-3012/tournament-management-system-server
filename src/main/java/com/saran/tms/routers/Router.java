@@ -125,7 +125,7 @@ public class Router {
 		try {
 			controller = (Controller) controllerClass.getDeclaredConstructor().newInstance();
 		} 
-		catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+		catch (Exception e) {
 			 Throwable cause = e.getCause();
 			 if (cause != null) {
 				 cause.printStackTrace();

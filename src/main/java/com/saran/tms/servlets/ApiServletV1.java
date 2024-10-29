@@ -2,6 +2,7 @@ package com.saran.tms.servlets;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.Map;
 import java.util.logging.Level;
 
 
@@ -24,6 +25,8 @@ public class ApiServletV1 extends HttpServlet {
     protected void service(HttpServletRequest request, HttpServletResponse response) {
     	
     	response.setHeader("Content-Type", "Application/json");
+		response.setHeader("Cache-Control", "private,no-cache,no-store,max-age=0,must-revalidate");
+		response.setHeader("Pragma", "no-cache");
     	
     	PrintWriter out = null;
     	
@@ -38,6 +41,17 @@ public class ApiServletV1 extends HttpServlet {
     	
 		try {
 			ResponseData responseData = Router.route(request, response);
+			Map<String, String> responseHeaders = responseData.getHeaders();
+			if(responseHeaders != null) {
+				for(Map.Entry<String, String> header : responseHeaders.entrySet()) {
+					String headerName = header.getKey();
+					String headerValue = header.getValue();
+					if(headerName == null || headerValue == null) {
+						continue;
+					}
+					response.addHeader(headerName, headerValue);
+				}
+			}
 			response.setStatus(responseData.getStatusCode().getStatusCode());
 			out.println(responseData.getData());
 		} 

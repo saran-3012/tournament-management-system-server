@@ -14,10 +14,15 @@ import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
+import com.saran.tms.models.SportModel;
 import com.saran.tms.models.TournamentModel;
+import com.saran.tms.models.TournamentParticipantModel;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
+import com.saran.tms.services.SportService;
+import com.saran.tms.services.TournamentParticipantService;
 import com.saran.tms.services.TournamentService;
+import com.saran.tms.services.TournamentTeamService;
 
 @RouteGroup(path="/api/v1")
 public class TournamentController implements Controller {
@@ -29,7 +34,25 @@ public class TournamentController implements Controller {
 		JSONObject reqBody = request.getBody();
 		Map<String, String> params = request.getParams();
 
-		TournamentModel tournament = (TournamentModel) JsonModelParser.parse(reqBody, TournamentModel.class);
+		TournamentModel tournament = (TournamentModel) JsonModelParser.parse(reqBody.getJSONObject("tournamentData"), TournamentModel.class);
+		
+		if(tournament.getRegistrationStartDate() > tournament.getRegistrationEndDate()) {
+			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Closing date should be after the opening date");
+		}
+		
+		SportModel sport = (SportModel) JsonModelParser.parse(reqBody.getJSONObject("sportData"), SportModel.class);
+		
+		SportModel sportWithId = null;
+		try {
+			sportWithId = SportService.findSport(sport);
+		}
+		catch(Exception e){}
+		
+		if(sportWithId == null) {
+			sportWithId = SportService.saveSport(sport);
+		}
+		
+		tournament.setSportId(sportWithId.getSportId());
 		
 		Long organizationId = Long.parseLong(params.get("org_id"));
 		tournament.setOrganizationId(organizationId);
@@ -81,12 +104,135 @@ public class TournamentController implements Controller {
 		return new ResponseData(StatusCodes.OK, jsonData);
 	}
 	
+	@Route(path="/orgs/:org_id/tournaments/:tournament_id/contestants", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
+	public ResponseData findTournamentAndContestants(RequestData request) throws ResponseException {
+		
+		ResponseData tournamentResponse = this.findTournament(request);
+		
+		JSONObject jsonData = tournamentResponse.getData();
+		
+		JSONObject tournamentData = (JSONObject) jsonData.remove("data");
+		
+		Short participationType = (short) tournamentData.getInt("sportType");
+
+		Map<String, String> params = request.getParams();
+		Map<String, String[]> queryParams = request.getQueryParams();
+		
+		List<List<Model>> contestantDetailsList = null;
+		
+		String count[] = queryParams.get("include_count");
+		boolean needCount = count != null && count.length > 0 && count[0].equals("true");
+		Long contestantsCount = null;
+		
+		String includeUser[] = queryParams.get("include_user");
+		boolean needUser = includeUser != null && includeUser.length > 0 && includeUser[0].equals("true");
+		JSONObject userParticipationData = null;
+		
+		if(participationType == 0) {
+			contestantDetailsList = TournamentParticipantService.findParticipants(params, queryParams);
+			if(needCount) {
+				contestantsCount = TournamentParticipantService.getParticipantCount(params, queryParams);
+			}
+			if(needUser) {
+				params.put("user_id", request.getUserId().toString());
+				List<Model> userParticipation = TournamentParticipantService.findUserParticipant(params);
+				userParticipationData = ModelJsonParser.parseAndMerge(userParticipation);
+			}
+		}
+		else if(participationType == 1){
+			contestantDetailsList = TournamentTeamService.findTeams(params, queryParams);
+			if(needCount) {
+				contestantsCount = TournamentTeamService.getTeamCount(params, queryParams);
+			}
+			if(needUser) {
+				params.put("user_id", request.getUserId().toString());
+				List<Model> userTeam = TournamentTeamService.findUserTeam(params);
+				userParticipationData = ModelJsonParser.parseAndMerge(userTeam);
+			}
+		}
+		else {
+			throw new ResponseException(StatusCodes.UNPROCESSABLE_CONTENT, "Invalid participation type, Try again");
+		}
+		
+		JSONArray contestantsData = new JSONArray();
+		
+		for(List<Model> contestantDetails : contestantDetailsList) {
+			JSONObject contestantData = ModelJsonParser.parseAndMerge(contestantDetails);
+			contestantsData.put(contestantData);
+		}
+		
+		JSONObject dataObject = new JSONObject();
+		
+		if(needCount) {
+			dataObject.put("count", contestantsCount);
+		}
+		
+		if(needUser) {
+			dataObject.put("userParticipation", userParticipationData);
+		}
+		
+		String needTournamentData[] = queryParams.get("include_tournament");
+		if(needTournamentData != null && needTournamentData.length > 0 && needTournamentData[0].equals("true")) {			
+			dataObject.put("tournament", tournamentData);
+		}
+	
+		dataObject.put(participationType == 0? "participants" : "teams", contestantsData);
+		
+		jsonData.put("data", dataObject);
+		jsonData.put("message", "Tournament and contestants found successfully");
+		
+		return new ResponseData(StatusCodes.OK, jsonData);
+	}
+	
+	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id", method="PUT", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
-	public ResponseData updateOrganization(RequestData request) throws ResponseException {
+	public ResponseData updateTournament(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
 		Map<String, String> params = request.getParams();
 
-		TournamentModel tournament = (TournamentModel) JsonModelParser.parse(reqBody, TournamentModel.class);
+		JSONObject updateTournamentData = reqBody.optJSONObject("tournamentData");
+		JSONObject updateSportData = reqBody.optJSONObject("sportData");
+		
+		
+		TournamentModel tournament = (TournamentModel) JsonModelParser.parse(updateTournamentData, TournamentModel.class);
+		
+		if(updateSportData != null && !updateSportData.isEmpty()) {
+			List<Model> tournamentDetailsWithRegisteredCount = TournamentService.findTournamentByIdWithRegiteredCount(params);
+			JSONObject tournamentDataWithRegisteredCount = ModelJsonParser.parseAndMerge(tournamentDetailsWithRegisteredCount);
+			
+			int teamSize = tournamentDataWithRegisteredCount.optInt("teamSize");
+			int sportType = tournamentDataWithRegisteredCount.optInt("sportType");
+			int registeredCount = tournamentDataWithRegisteredCount.optInt("count");
+			
+			Integer newTeamSize = updateSportData.optInt("teamSize");
+			Integer newSportType = updateSportData.optInt("sportType");
+			
+			
+			String tournamentUpdateOption = request.getHeaders().get("Tms-Tournament-Update-Option");
+			
+			if(registeredCount > 0 && ((newTeamSize != null && newTeamSize < teamSize) || (newSportType != null && newSportType != sportType)) && tournamentUpdateOption == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_REQUIRED, "Changing the sport will remove all registered contestants");
+			}
+			
+			if(tournamentUpdateOption == "1") {
+				SportModel sport = (SportModel) JsonModelParser.parse(updateSportData, SportModel.class);
+				
+				
+				SportModel sportWithId = null;
+				try {
+					sportWithId = SportService.findSport(sport);
+				}
+				catch(Exception e){}
+				
+				if(sportWithId == null) {
+					sportWithId = SportService.saveSport(sport);
+				}
+				
+				tournament.setSportId(sportWithId.getSportId());
+			}
+		}
+
+		
 		tournament.setTournamentCreatedAt(null);
 		tournament.setOrganizationId(null);
 		
@@ -102,7 +248,7 @@ public class TournamentController implements Controller {
 	}
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id", method="DELETE", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
-	public ResponseData deleteOrganization(RequestData request) throws ResponseException {
+	public ResponseData deleteTournament(RequestData request) throws ResponseException {
 		Map<String, String> params = request.getParams();
 		
 		TournamentModel deletedTournament = TournamentService.deleteTournamentById(params);
