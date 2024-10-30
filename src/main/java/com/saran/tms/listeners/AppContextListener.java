@@ -17,6 +17,7 @@ import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
+import com.saran.tms.concurrency.ConcurrencyLimiterFactory;
 import com.saran.tms.config.ColumnConfig;
 import com.saran.tms.config.DataBaseConfig;
 import com.saran.tms.config.TableConfig;
@@ -34,27 +35,21 @@ import com.saran.tms.test.Main;
 
 public class AppContextListener implements ServletContextListener {
 
-    /**
-     * Default constructor. 
-     */
+	Thread schedulerThread;
     
 	public AppContextListener() {}
 
-    /**
-     * @see ServletContextListener#contextInitialized(ServletContextEvent)
-     */
-    
-
-    
     public void contextInitialized(ServletContextEvent sce)  { 
     	
     	ServletContext context = sce.getServletContext();
 
+    	// Logger initialization 
     	
     	String LOGGER_FOLDER_PATH = context.getInitParameter("LogsFolder");
     	
     	ApplicationLogger.initializeLogger(LOGGER_FOLDER_PATH);
     	
+    	// Database configuration initialization
     	
     	String DB_CONFIG_FILE_PATH = context.getInitParameter("DataBaseConfig");
     	if(DB_CONFIG_FILE_PATH == null || DB_CONFIG_FILE_PATH.isEmpty()) {
@@ -63,8 +58,6 @@ public class AppContextListener implements ServletContextListener {
     		return;
     	}
     	
-
-       
         Yaml yaml = new Yaml();
         Map<String, Object> configMap = null;
         InputStream inputStream = null;
@@ -148,7 +141,9 @@ public class AppContextListener implements ServletContextListener {
         DataBaseConfig.initializeConfig(dbUrl, dbUser, dbPassword, modelPackageName, tableNameConfigMap, modelNameConfigMap);
         ApplicationLogger.log(Level.CONFIG, "Data base configuration initialized successfully!");
 
-//        Custom connection pool implementation
+        
+        // Custom connection pool implementation
+        
         try {
 			ConnectionPool.initializeConnectionPool(10, 20);
 	        ApplicationLogger.log(Level.CONFIG, "Connection Pool initialized successfully!");
@@ -168,7 +163,28 @@ public class AppContextListener implements ServletContextListener {
 			ApplicationLogger.log(Level.SEVERE, "Router initialization failed", e);
 			return;
         }
+        
+        // Concurrency limiter cofiguration initialization
+        
+        ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:Participants");
+        ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:Teams");
+        ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:TeamMembers");
 
+        Runnable scheduler = () -> {
+        	while(true) {
+        		try {
+					Thread.sleep(1000 * 60 * 60);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					ApplicationLogger.log(Level.SEVERE, "Scheduler execution failed", e);
+				}
+        		ConcurrencyLimiterFactory.cleanUp();
+        	}
+        };
+        
+        schedulerThread = new Thread(scheduler);
+        schedulerThread.setDaemon(true);
+        schedulerThread.start();
     	
 //    	Main.main(null); // TESTING
     }
@@ -180,7 +196,7 @@ public class AppContextListener implements ServletContextListener {
      */
     
     public void contextDestroyed(ServletContextEvent sce)  { 
-//      Custom connection pool implementation
+    	// Custom connection pool implementation
         try {
 			ConnectionPool.closeAllConnections();
 			ApplicationLogger.log(Level.CONFIG, "All the Connection Pool connections closed");
@@ -190,10 +206,18 @@ public class AppContextListener implements ServletContextListener {
         	e.printStackTrace();
 		}
         
+        // Stop scheduler thread
+        try {        	
+        	schedulerThread.stop();
+        	ApplicationLogger.log(Level.CONFIG, "Scheduler thread stopped");
+        }
+        catch(Exception e) {
+        	ApplicationLogger.log(Level.WARNING, "Scheduler thread not stopped properly", e);
+        	e.printStackTrace();
+        }
         
-        
-        
-        
+        // Close logger
+        ApplicationLogger.log(Level.CONFIG, "Closing application logger");
         ApplicationLogger.closeLogger();
     }
 	

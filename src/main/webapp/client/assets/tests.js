@@ -47,7 +47,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('components/nav-bar.js', function (assert) {
     assert.expect(1);
-    assert.ok(true, 'components/nav-bar.js should pass ESLint\n\n');
+    assert.ok(false, 'components/nav-bar.js should pass ESLint\n\n29:37 - \'event\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('components/organization-card.js', function (assert) {
@@ -192,7 +192,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('controllers/tournaments/tournament.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'controllers/tournaments/tournament.js should pass ESLint\n\n45:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n58:27 - \'includeLimit\' is assigned a value but never used. (no-unused-vars)\n77:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n204:38 - \'teamRegistrationType\' is defined but never used. (no-unused-vars)\n366:42 - \'xqXHR\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'controllers/tournaments/tournament.js should pass ESLint\n\n45:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n58:27 - \'includeLimit\' is assigned a value but never used. (no-unused-vars)\n77:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n204:38 - \'teamRegistrationType\' is defined but never used. (no-unused-vars)\n376:42 - \'xqXHR\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('controllers/tournaments/tournament/edit.js', function (assert) {

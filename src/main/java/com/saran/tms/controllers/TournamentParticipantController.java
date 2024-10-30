@@ -1,10 +1,14 @@
 package com.saran.tms.controllers;
 
 import com.saran.tms.annotations.RouteGroup;
+import com.saran.tms.concurrency.CallBackFunction;
+import com.saran.tms.concurrency.ConcurrencyLimiter;
+import com.saran.tms.concurrency.ConcurrencyLimiterFactory;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,7 +19,9 @@ import com.saran.tms.annotations.Route;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
+import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.models.Model;
+import com.saran.tms.models.TournamentModel;
 import com.saran.tms.models.TournamentParticipantModel;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
@@ -25,57 +31,105 @@ import com.saran.tms.services.TournamentService;
 @RouteGroup(path="/api/v1")
 public class TournamentParticipantController implements Controller {
 	
+	
+//	EXPERIMENTAL FOR CONCURRENCY CONTROL
+	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/participants", method="POST", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData saveParticipant(RequestData request) throws ResponseException {
 		
+		CallBackFunction callBack = (values) -> {
+			Map<String, String> params = request.getParams();
+			
+			Long tournamentId = null;
+			try {
+				tournamentId = Long.parseLong(params.get("tournament_id"));
+			}
+			catch(NumberFormatException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament data");
+			}
+
+			List<Model> tournamentDetails = TournamentService.findTournamentByIdWithRegiteredCount(params);
+			
+			JSONObject tournamentData = ModelJsonParser.parseAndMerge(tournamentDetails);
+			
+			short tournamentStatus = (short) tournamentData.optInt("tournamentStatus");
+			if(tournamentStatus == 2) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has already completed");
+			}
+			if(tournamentStatus == 3) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has been cancelled");
+			}
+			
+			int maxParticipation = (int) tournamentData.optInt("maxParticipation");
+			int registrationCount = (int) tournamentData.optInt("count");
+			
+			long currentTimeMillis = Instant.now().toEpochMilli();
+			
+			long tournamentRegistrationStartDate = tournamentData.optLong("registrationStartDate");
+			long tournamentRegistrationEndDate = tournamentData.optLong("registrationEndDate");
+			
+			if(currentTimeMillis < tournamentRegistrationStartDate) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration not yet started");
+			}
+			
+			if(currentTimeMillis > tournamentRegistrationEndDate) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration period has been completed");
+			}
+			
+			if(registrationCount >= maxParticipation) {
+				throw new ResponseException(StatusCodes.CONFLICT, "Maximum number of participants registered");
+			}
+			
+			JSONObject reqBody = request.getBody();
+			
+			TournamentParticipantModel participant = (TournamentParticipantModel) JsonModelParser.parse(reqBody, TournamentParticipantModel.class);
+			participant.setTournamentId(tournamentId);
+			
+			TournamentParticipantModel newParticipant = TournamentParticipantService.saveParticipant(participant);
+			
+			return newParticipant;
+		};
+		
 		Map<String, String> params = request.getParams();
+		
+		Long organizationId = null;
+		try {
+			organizationId = Long.parseLong(params.get("org_id"));
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid organization id");
+		}
 		
 		Long tournamentId = null;
 		try {
 			tournamentId = Long.parseLong(params.get("tournament_id"));
 		}
 		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament data");
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
 		}
 		
-		List<Model> tournamentDetails = TournamentService.findTournamentByIdWithRegiteredCount(params);
+		List<Model> tournamentInfo = TournamentService.findTournamentById(params);
+		int tournamentModelIndex = (tournamentInfo.get(0) instanceof TournamentModel)? 0 : 1;
+		int maxParticipation =  ((TournamentModel) tournamentInfo.get(tournamentModelIndex)).getMaxParticipation();
 		
-		JSONObject tournamentData = ModelJsonParser.parseAndMerge(tournamentDetails);
+		ConcurrencyLimiter concurrencyLimiter = ConcurrencyLimiterFactory.getConcurrencyLimiter("TournamentRegistration:Participants", maxParticipation, organizationId, tournamentId);
 		
-		short tournamentStatus = (short) tournamentData.optInt("tournamentStatus");
-		if(tournamentStatus == 2) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has already completed");
+		TournamentParticipantModel newParticipant;
+		try {
+			newParticipant = (TournamentParticipantModel) concurrencyLimiter.executeCallBack(callBack);
+		} 
+		catch(IllegalStateException e) {
+			ApplicationLogger.log(Level.INFO, "Registration queue is full", e);
+			throw new ResponseException(StatusCodes.TOO_MANY_REQUESTS, "Registration queue is full");
 		}
-		if(tournamentStatus == 3) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has been cancelled");
+		catch (Exception e) {
+			ApplicationLogger.log(Level.WARNING, e.getMessage(), e);
+			Throwable cause = e.getCause();
+			if(cause != null && cause instanceof ResponseException) {
+				throw (ResponseException) cause;
+			}
+			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Something went wrong, try again");
 		}
-		
-		int maxParticipation = (int) tournamentData.optInt("maxParticipation");
-		int registrationCount = (int) tournamentData.optInt("count");
-		
-		long currentTimeMillis = Instant.now().toEpochMilli();
-		
-		long tournamentRegistrationStartDate = tournamentData.optLong("registrationStartDate");
-		long tournamentRegistrationEndDate = tournamentData.optLong("registrationEndDate");
-		
-		if(currentTimeMillis < tournamentRegistrationStartDate) {
-			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration not yet started");
-		}
-		
-		if(currentTimeMillis > tournamentRegistrationEndDate) {
-			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration period has been completed");
-		}
-		
-		if(registrationCount >= maxParticipation) {
-			throw new ResponseException(StatusCodes.CONFLICT, "Maximum number of participants registered");
-		}
-		
-		JSONObject reqBody = request.getBody();
-		
-		TournamentParticipantModel participant = (TournamentParticipantModel) JsonModelParser.parse(reqBody, TournamentParticipantModel.class);
-		participant.setTournamentId(tournamentId);
-		
-		TournamentParticipantModel newParticipant = TournamentParticipantService.saveParticipant(participant);
 		
 		JSONObject participantData = ModelJsonParser.parse(newParticipant);
 		
@@ -85,6 +139,70 @@ public class TournamentParticipantController implements Controller {
 		
 		return new ResponseData(StatusCodes.CREATED, jsonData);
 	}
+	
+	
+//	ORIGINAL IMPLEMENTATION
+	
+//	@Route(path="/orgs/:org_id/tournaments/:tournament_id/participants", method="POST", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
+//	public ResponseData saveParticipant(RequestData request) throws ResponseException {
+//		
+//		Map<String, String> params = request.getParams();
+//		
+//		Long tournamentId = null;
+//		try {
+//			tournamentId = Long.parseLong(params.get("tournament_id"));
+//		}
+//		catch(NumberFormatException e) {
+//			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament data");
+//		}
+//		
+//		List<Model> tournamentDetails = TournamentService.findTournamentByIdWithRegiteredCount(params);
+//		
+//		JSONObject tournamentData = ModelJsonParser.parseAndMerge(tournamentDetails);
+//		
+//		short tournamentStatus = (short) tournamentData.optInt("tournamentStatus");
+//		if(tournamentStatus == 2) {
+//			throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has already completed");
+//		}
+//		if(tournamentStatus == 3) {
+//			throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has been cancelled");
+//		}
+//		
+//		int maxParticipation = (int) tournamentData.optInt("maxParticipation");
+//		int registrationCount = (int) tournamentData.optInt("count");
+//		
+//		long currentTimeMillis = Instant.now().toEpochMilli();
+//		
+//		long tournamentRegistrationStartDate = tournamentData.optLong("registrationStartDate");
+//		long tournamentRegistrationEndDate = tournamentData.optLong("registrationEndDate");
+//		
+//		if(currentTimeMillis < tournamentRegistrationStartDate) {
+//			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration not yet started");
+//		}
+//		
+//		if(currentTimeMillis > tournamentRegistrationEndDate) {
+//			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration period has been completed");
+//		}
+//		
+//		if(registrationCount >= maxParticipation) {
+//			throw new ResponseException(StatusCodes.CONFLICT, "Maximum number of participants registered");
+//		}
+//		
+//		JSONObject reqBody = request.getBody();
+//		
+//		TournamentParticipantModel participant = (TournamentParticipantModel) JsonModelParser.parse(reqBody, TournamentParticipantModel.class);
+//		participant.setTournamentId(tournamentId);
+//		
+//		TournamentParticipantModel newParticipant = TournamentParticipantService.saveParticipant(participant);
+//		
+//		JSONObject participantData = ModelJsonParser.parse(newParticipant);
+//		
+//		JSONObject jsonData = new JSONObject();
+//		jsonData.put("data", participantData);
+//		jsonData.put("message", "Participant registered successfully");
+//		
+//		return new ResponseData(StatusCodes.CREATED, jsonData);
+//	}
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/participants/:participant_id", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findParticipant(RequestData request) throws ResponseException {
