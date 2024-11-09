@@ -17,6 +17,8 @@ import com.saran.tms.models.Model;
 import com.saran.tms.models.SportModel;
 import com.saran.tms.models.TournamentModel;
 import com.saran.tms.models.TournamentParticipantModel;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.SportService;
@@ -32,7 +34,7 @@ public class TournamentController implements Controller {
 	public ResponseData saveTournament(RequestData request) throws ResponseException {
 		
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		TournamentModel tournament = (TournamentModel) JsonModelParser.parse(reqBody.getJSONObject("tournamentData"), TournamentModel.class);
 		
@@ -70,7 +72,7 @@ public class TournamentController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findTournament(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		List<Model> tournamentDetails = TournamentService.findTournamentById(params);
 		
@@ -85,8 +87,8 @@ public class TournamentController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findTournaments(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<List<Model>> tournamentDetailsList = TournamentService.findTournaments(params, queryParams);
 		
@@ -115,17 +117,17 @@ public class TournamentController implements Controller {
 		
 		Short participationType = (short) tournamentData.getInt("sportType");
 
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<List<Model>> contestantDetailsList = null;
 		
-		String count[] = queryParams.get("include_count");
-		boolean needCount = count != null && count.length > 0 && count[0].equals("true");
+		Boolean count = queryParams.getBoolean("include_count");
+		boolean needCount = count != null && count;
 		Long contestantsCount = null;
 		
-		String includeUser[] = queryParams.get("include_user");
-		boolean needUser = includeUser != null && includeUser.length > 0 && includeUser[0].equals("true");
+		Boolean includeUser = queryParams.getBoolean("include_user");
+		boolean needUser = includeUser != null && includeUser;
 		JSONObject userParticipationData = null;
 		
 		if(participationType == 0) {
@@ -171,8 +173,8 @@ public class TournamentController implements Controller {
 			dataObject.put("userParticipation", userParticipationData);
 		}
 		
-		String needTournamentData[] = queryParams.get("include_tournament");
-		if(needTournamentData != null && needTournamentData.length > 0 && needTournamentData[0].equals("true")) {			
+		Boolean needTournamentData = queryParams.getBoolean("include_tournament");
+		if(needTournamentData != null && needTournamentData) {			
 			dataObject.put("tournament", tournamentData);
 		}
 	
@@ -188,7 +190,7 @@ public class TournamentController implements Controller {
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id", method="PUT", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
 	public ResponseData updateTournament(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		JSONObject updateTournamentData = reqBody.optJSONObject("tournamentData");
 		JSONObject updateSportData = reqBody.optJSONObject("sportData");
@@ -249,7 +251,7 @@ public class TournamentController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id", method="DELETE", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
 	public ResponseData deleteTournament(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		TournamentModel deletedTournament = TournamentService.deleteTournamentById(params);
 		

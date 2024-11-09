@@ -246,8 +246,6 @@ public class PostgresDataBase implements DataBase {
 		
 		modelMap = ModelMapParser.convertToMap(model);
 
-	
-		modelMap.remove("id"); // needs to be handled
 		
 		List<String> fieldNames = new ArrayList<String>();
 		List<List<Object>> fieldValues = new ArrayList<>();
@@ -286,7 +284,6 @@ public class PostgresDataBase implements DataBase {
 
 		Set<String> keys = modelMap.keySet();
 		
-		keys.remove("id"); // handle this bruh!!!!!!!
 		
 		List<String> fieldNames = new ArrayList<String>();
 		

@@ -2,7 +2,6 @@ package com.saran.tms.filters;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.http.HttpResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -26,6 +25,7 @@ import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.models.Model;
+import com.saran.tms.routers.Params;
 import com.saran.tms.services.OrganizationService;
 
 
@@ -110,7 +110,7 @@ public class AuthFilter extends HttpFilter implements Filter {
 		// Vulnerable should change location
 		
 		try {
-			List<Model> orgDetails = OrganizationService.findOrganizationById(Map.ofEntries(Map.entry("org_id", organizationId.toString())));
+			List<Model> orgDetails = OrganizationService.findOrganizationById(new Params(Map.ofEntries(Map.entry("org_id", organizationId.toString()))));
 			JSONObject orgData = ModelJsonParser.parseAndMerge(orgDetails);
 			Short orgStatus = (short) orgData.optInt("organizationStatus", 0);
 			if(orgStatus != 1) {

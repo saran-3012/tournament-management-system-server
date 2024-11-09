@@ -1,20 +1,21 @@
 package com.saran.tms.controllers;
 
 import java.util.List;
-import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.saran.tms.adapters.JsonModelParser;
 import com.saran.tms.adapters.ModelJsonParser;
-import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.annotations.Route;
+import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.UserModel;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.UserService;
@@ -30,7 +31,7 @@ public class UserController implements Controller{
 	public ResponseData saveUser(RequestData request) throws ResponseException {
 		
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		UserModel user = (UserModel) JsonModelParser.parse(reqBody, UserModel.class);
 		
@@ -75,7 +76,7 @@ public class UserController implements Controller{
 	
 	@Route(path="/users/:user_id", method="GET")
 	public ResponseData findUser(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		UserModel user = UserService.findUserById(params);
 		user.setPassword(null);
@@ -92,8 +93,8 @@ public class UserController implements Controller{
 	
 	@Route(path="/users", method="GET")
 	public ResponseData findUsers(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<Model> users = UserService.findUsers(params, queryParams);
 
@@ -116,8 +117,8 @@ public class UserController implements Controller{
 	
 	@Route(path="/orgs/:org_id/users", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
 	public ResponseData findOrganizationUsers(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<Model> users = UserService.findUsers(params, queryParams);
 
@@ -140,7 +141,7 @@ public class UserController implements Controller{
 	@Route(path="/orgs/:org_id/users/:user_id", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findOrganizationUser(RequestData request) throws ResponseException {
 		
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
  
 		UserModel user = UserService.findUserById(params);
 	
@@ -159,7 +160,7 @@ public class UserController implements Controller{
 	@Route(path="/users/:user_id", method="PUT")
 	public ResponseData updateUser(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		UserModel user = (UserModel) JsonModelParser.parse(reqBody, UserModel.class);
 		user.setPassword(null);
@@ -181,7 +182,7 @@ public class UserController implements Controller{
 	@Route(path="/orgs/:org_id/users/:user_id", method="PUT", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData updateOrganizationUser(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		UserModel user = (UserModel) JsonModelParser.parse(reqBody, UserModel.class);
 		user.setPassword(null);
@@ -202,8 +203,8 @@ public class UserController implements Controller{
 	@Route(path="/orgs/:org_id/users", method="PUT", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
 	public ResponseData updateUsers(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		UserModel user = (UserModel) JsonModelParser.parse(reqBody, UserModel.class);
 		user.setPassword(null);
@@ -229,7 +230,7 @@ public class UserController implements Controller{
 	
 	@Route(path="/orgs/:org_id/users/:user_id", method="DELETE", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN}) 
 	public ResponseData deleteUser(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		UserModel deletedUser = UserService.deleteUserById(params);
 		deletedUser.setPassword(null);

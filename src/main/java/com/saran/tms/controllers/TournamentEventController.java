@@ -19,6 +19,8 @@ import com.saran.tms.models.TournamentEventModel;
 import com.saran.tms.models.TournamentEventParticipantModel;
 import com.saran.tms.models.TournamentEventTeamModel;
 import com.saran.tms.models.TournamentModel;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.TournamentEventParticipantService;
@@ -32,7 +34,7 @@ public class TournamentEventController implements Controller {
 	public ResponseData saveTournamentEvent(RequestData request) throws ResponseException {
 		
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		Long tournamentId = null;
 		
@@ -93,7 +95,7 @@ public class TournamentEventController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/events/:event_id", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findTournamentEvent(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		TournamentEventModel tournamentEvent = TournamentEventService.findTournamentEventById(params);
 		
@@ -109,8 +111,8 @@ public class TournamentEventController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/events", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findTournamentEvents(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<Model> tournamentEvents = TournamentEventService.findTournamentEvents(params, queryParams);
 		
@@ -124,10 +126,32 @@ public class TournamentEventController implements Controller {
 		return new ResponseData(StatusCodes.OK, jsonData);
 	}
 	
+	@Route(path="/orgs/:org_id/users/:user_id/events", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
+	public ResponseData findUserEvents(RequestData request) throws ResponseException {
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
+		
+		List<List<Model>> tournamentEvents = TournamentEventService.findUserEvents(params, queryParams);
+		
+		JSONArray tournamentEventsData = new JSONArray();
+		
+		for(List<Model> tournamentEvent : tournamentEvents) {
+			JSONObject tournamentEventData = ModelJsonParser.parseAndMerge(tournamentEvent);
+			tournamentEventsData.put(tournamentEventData);
+		}
+		
+		JSONObject jsonData = new JSONObject();
+		
+		jsonData.put("data", tournamentEventsData);
+		jsonData.put("message", "Events found");
+		
+		return new ResponseData(StatusCodes.OK, jsonData);
+	}
+	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/events/:event_id/contestants", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findTournamentEventContestants(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<Model> tournamentDetails = TournamentService.findTournamentById(params);
 		

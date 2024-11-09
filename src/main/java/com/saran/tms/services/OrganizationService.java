@@ -18,6 +18,9 @@ import com.saran.tms.pojo.JoinConditionEntry;
 import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
+import com.saran.tms.utils.Utilities;
 
 public class OrganizationService {
 	public static OrganizationModel saveOrganization(OrganizationModel org) throws ResponseException {
@@ -26,9 +29,20 @@ public class OrganizationService {
 		return newOrg;
 	}
 
-	public static List<Model> findOrganizationById(Map<String, String> params) throws ResponseException {
+	public static List<Model> findOrganizationById(Params params) throws ResponseException {
 		Dao orgDao = new Dao(OrganizationModel.class);
 
+		Long organizationId;
+		try {
+			organizationId = params.getLong("org_id");
+			if(organizationId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Organization id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid organization id");
+		}
+		
 		List<Model> organizationDetails = orgDao.findOneWithJoin(
 				Arrays.asList(
 						new TableColumnEntry(TableNames.ORGANIZATIONS, Arrays.asList("*")),
@@ -42,7 +56,7 @@ public class OrganizationService {
 				Arrays.asList(
 						new TableConditionEntry(TableNames.ORGANIZATIONS,
 								Arrays.asList(
-										new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("org_id")))
+										new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), organizationId)
 								)
 						)
 				)
@@ -55,50 +69,71 @@ public class OrganizationService {
 		return organizationDetails;
 	}
 
-	public static List<List<Model>> findOrganizations(Map<String, String> params, Map<String, String[]> queryParams)
-			throws ResponseException {
+	public static List<List<Model>> findOrganizations(Params params, QueryParams queryParams) throws ResponseException {
 		Dao orgDao = new Dao(OrganizationModel.class);
 
 		List<ConditionEntry> conditions = new ArrayList<>();
 
 		Operators operator = null;
 
-		String orgNames[] = queryParams.get("filter_orgname");
-		if (orgNames != null && orgNames.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "organization_name",
-					Arrays.asList(Operators.ILIKE), '%' + orgNames[0] + '%'));
+		String orgName = queryParams.get("filter_orgname");
+		if (orgName != null) {
+			conditions.add(new ConditionEntry(Arrays.asList(operator), "organization_name", Arrays.asList(Operators.ILIKE), '%' + orgName + '%'));
 			operator = Operators.AND;
 		}
-
-		String startedYears[] = queryParams.get("filter_startyear");
-		if (startedYears != null && startedYears.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "started_year", Arrays.asList(Operators.EQUAL),
-					Short.parseShort(startedYears[0])));
-			operator = Operators.AND;
+		
+		try {
+			Short startedYear = queryParams.getShort("filter_startyear");
+			if(startedYear != null) {
+				conditions.add(new ConditionEntry(Arrays.asList(operator), "started_year", Arrays.asList(Operators.EQUAL), startedYear));
+				operator = Operators.AND;
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid started year");
+		}
+		
+		try {
+			Short organizationStatus = queryParams.getShort("filter_organizationstatus");
+			if(organizationStatus != null) {
+				conditions.add(new ConditionEntry(Arrays.asList(operator), "organization_status", Arrays.asList(Operators.EQUAL), organizationStatus));
+				operator = Operators.AND;
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid organization status");
 		}
 
-		String organizationStatuses[] = queryParams.get("filter_organizationstatus");
-		if (organizationStatuses != null && organizationStatuses.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "organization_status",
-					Arrays.asList(Operators.EQUAL), Short.parseShort(organizationStatuses[0])));
-			operator = Operators.AND;
+		Integer limit;
+		Integer page;
+		
+		try {
+			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
+			if(limit < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
+			}
 		}
-
-		Integer limit = 20;
-		Integer page = 0;
-
-		String limits[] = queryParams.get("limit");
-		String pages[] = queryParams.get("page");
-
-		if (limits != null && limits.length > 0) {
-			limit = Integer.parseInt(limits[0]);
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
 		}
-
-		if (pages != null && pages.length > 0) {
-			page = Integer.parseInt(pages[0]);
+		
+		try {
+			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
+			if(page < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
+			}
 		}
-
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
+		}
+		
 		Integer offset = limit * page;
+		
+		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
+		if(excludeLimit != null && excludeLimit) {
+			limit = null;
+			offset = null;
+		}
 
 		List<List<Model>> orgDetailsList = orgDao.findAllWithJoin(
 						Arrays.asList(
@@ -118,13 +153,22 @@ public class OrganizationService {
 		return orgDetailsList;
 	}
 
-	public static OrganizationModel updateOrganizationById(Map<String, String> params, OrganizationModel org)
-			throws ResponseException {
+	public static OrganizationModel updateOrganizationById(Params params, OrganizationModel org) throws ResponseException {
 		Dao orgDao = new Dao(OrganizationModel.class);
+		Long organizationId;
+		try {
+			organizationId = params.getLong("org_id");
+			if(organizationId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Organization id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid organization id");
+		}
 		List<Model> updatedOrgs = orgDao.updateAndReturn(
 				org, 
 				Arrays.asList(
-						new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("org_id")))
+						new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), organizationId)
 				), 
 				Arrays.asList("*")
 		);
@@ -134,11 +178,21 @@ public class OrganizationService {
 		return (OrganizationModel) updatedOrgs.get(0);
 	}
 
-	public static OrganizationModel deleteOrganizationById(Map<String, String> params) throws ResponseException {
+	public static OrganizationModel deleteOrganizationById(Params params) throws ResponseException {
 		Dao orgDao = new Dao(OrganizationModel.class);
+		Long organizationId;
+		try {
+			organizationId = params.getLong("org_id");
+			if(organizationId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Organization id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid organization id");
+		}
 		List<Model> deletedOrgs = orgDao.deleteAndReturn(
 				Arrays.asList(
-						new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("org_id")))
+						new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), organizationId)
 				), 
 				Arrays.asList("*"));
 		if (deletedOrgs == null || deletedOrgs.isEmpty()) {

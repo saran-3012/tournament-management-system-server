@@ -16,7 +16,9 @@ public enum Operators {
 	GREATER_THAN_OR_EQUAL(">="),
 	IN("IN"),
 	BETWEEN("BETWEEN"),
-	EXISTS("EXISTS");
+	EXISTS("EXISTS"),
+	OPEN_BRACKET("("),
+	CLOSED_BRACKET(")");
 	
 	private String operator;
 	

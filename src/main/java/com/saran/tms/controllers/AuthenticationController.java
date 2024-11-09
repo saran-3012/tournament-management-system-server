@@ -17,6 +17,7 @@ import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.OrganizationModel;
 import com.saran.tms.models.UserModel;
+import com.saran.tms.routers.Params;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.OrganizationService;
@@ -45,7 +46,7 @@ public class AuthenticationController implements Controller {
 		Long requestUserId = request.getUserId();
 		UserRoles userRole = request.getUserRole();
 		
-		UserModel user = UserService.findUserById(Map.ofEntries(Map.entry("user_id", requestUserId.toString())));
+		UserModel user = UserService.findUserById(new Params(Map.ofEntries(Map.entry("user_id", requestUserId.toString()))));
 		
 		if(user == null || user.getRole() != userRole.getRolePriority()) {
 			session.invalidate();
@@ -79,7 +80,7 @@ public class AuthenticationController implements Controller {
 		UserModel user = null;
 		
 		try {
-			user = UserService.findUserByEmail(Map.ofEntries(Map.entry("email", userEmail)));
+			user = UserService.findUserByEmail(new Params(Map.ofEntries(Map.entry("email", userEmail))));
 		}
 		catch(Exception e) {}
 		
@@ -159,7 +160,7 @@ public class AuthenticationController implements Controller {
 				
 			case ORGANIZATION_ADMIN:
 				role = 0;
-				UserModel orgAdmin = UserService.findUserById(Map.ofEntries(Map.entry("user_id", requestUserId.toString())));
+				UserModel orgAdmin = UserService.findUserById(new Params(Map.ofEntries(Map.entry("user_id", requestUserId.toString()))));
 				organizationId = orgAdmin.getOrganizationId();
 				break;
 				
@@ -234,7 +235,7 @@ public class AuthenticationController implements Controller {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "User id not provided");
 		}
 		
-		UserModel user = UserService.findUserById(Map.ofEntries(Map.entry("user_id", userId.toString())));
+		UserModel user = UserService.findUserById(new Params(Map.ofEntries(Map.entry("user_id", userId.toString()))));
 		
 		String newPassword = null;
 		
@@ -261,7 +262,7 @@ public class AuthenticationController implements Controller {
 				break;
 				
 			case ORGANIZATION_ADMIN:
-				UserModel orgAdmin = UserService.findUserById(Map.ofEntries(Map.entry("user_id", requestUserId.toString())));
+				UserModel orgAdmin = UserService.findUserById(new Params(Map.ofEntries(Map.entry("user_id", requestUserId.toString()))));
 				if(orgAdmin.getOrganizationId() != user.getOrganizationId()) {
 					throw new ResponseException(StatusCodes.FORBIDDEN, "You are not allowed to perform this operation");
 				}
@@ -289,7 +290,7 @@ public class AuthenticationController implements Controller {
 		
 		passwordUpdatedUser.setPassword(hashedPassword);
 		
-		passwordUpdatedUser = UserService.updateUserById(Map.ofEntries(Map.entry("user_id", userId.toString())), passwordUpdatedUser);
+		passwordUpdatedUser = UserService.updateUserById(new Params(Map.ofEntries(Map.entry("user_id", userId.toString()))), passwordUpdatedUser);
 		
 		passwordUpdatedUser.setPassword(null);
 		

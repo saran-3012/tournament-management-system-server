@@ -295,7 +295,7 @@ private StringBuilder queryBuilder;
 			}
 		}
 		
-		this.field(tableName.getTableName() + '.' + columnName);
+		this.field((tableName != null && columnName != null) ? tableName.getTableName() + '.' + columnName : (columnName != null)? columnName : "");
 		
 		if(suffixOperators != null) {
 			for(Operators operator : suffixOperators) {
@@ -304,8 +304,10 @@ private StringBuilder queryBuilder;
 			}
 		}
 		
-		this.qm();
 		
+		if(columnName != null) {
+			this.qm();
+		}
 		return this;
 	}
 	

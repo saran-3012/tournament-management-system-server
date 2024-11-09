@@ -21,8 +21,11 @@ import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.models.Model;
+import com.saran.tms.models.SportModel;
 import com.saran.tms.models.TournamentModel;
 import com.saran.tms.models.TournamentParticipantModel;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.TournamentParticipantService;
@@ -37,60 +40,8 @@ public class TournamentParticipantController implements Controller {
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/participants", method="POST", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData saveParticipant(RequestData request) throws ResponseException {
 		
-		CallBackFunction callBack = (values) -> {
-			Map<String, String> params = request.getParams();
-			
-			Long tournamentId = null;
-			try {
-				tournamentId = Long.parseLong(params.get("tournament_id"));
-			}
-			catch(NumberFormatException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament data");
-			}
-
-			List<Model> tournamentDetails = TournamentService.findTournamentByIdWithRegiteredCount(params);
-			
-			JSONObject tournamentData = ModelJsonParser.parseAndMerge(tournamentDetails);
-			
-			short tournamentStatus = (short) tournamentData.optInt("tournamentStatus");
-			if(tournamentStatus == 2) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has already completed");
-			}
-			if(tournamentStatus == 3) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has been cancelled");
-			}
-			
-			int maxParticipation = (int) tournamentData.optInt("maxParticipation");
-			int registrationCount = (int) tournamentData.optInt("count");
-			
-			long currentTimeMillis = Instant.now().toEpochMilli();
-			
-			long tournamentRegistrationStartDate = tournamentData.optLong("registrationStartDate");
-			long tournamentRegistrationEndDate = tournamentData.optLong("registrationEndDate");
-			
-			if(currentTimeMillis < tournamentRegistrationStartDate) {
-				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration not yet started");
-			}
-			
-			if(currentTimeMillis > tournamentRegistrationEndDate) {
-				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration period has been completed");
-			}
-			
-			if(registrationCount >= maxParticipation) {
-				throw new ResponseException(StatusCodes.CONFLICT, "Maximum number of participants registered");
-			}
-			
-			JSONObject reqBody = request.getBody();
-			
-			TournamentParticipantModel participant = (TournamentParticipantModel) JsonModelParser.parse(reqBody, TournamentParticipantModel.class);
-			participant.setTournamentId(tournamentId);
-			
-			TournamentParticipantModel newParticipant = TournamentParticipantService.saveParticipant(participant);
-			
-			return newParticipant;
-		};
-		
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		Long organizationId = null;
 		try {
@@ -110,7 +61,47 @@ public class TournamentParticipantController implements Controller {
 		
 		List<Model> tournamentInfo = TournamentService.findTournamentById(params);
 		int tournamentModelIndex = (tournamentInfo.get(0) instanceof TournamentModel)? 0 : 1;
-		int maxParticipation =  ((TournamentModel) tournamentInfo.get(tournamentModelIndex)).getMaxParticipation();
+		
+		TournamentModel tournament = (TournamentModel) tournamentInfo.get(tournamentModelIndex);
+		
+		final int maxParticipation = tournament.getMaxParticipation();
+		
+		CallBackFunction callBack = (values) -> {
+			
+			short tournamentStatus = (short) tournament.getTournamentStatus();
+			if(tournamentStatus == 2) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has already completed");
+			}
+			if(tournamentStatus == 3) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has been cancelled");
+			}
+			
+			
+			long currentTimeMillis = Instant.now().toEpochMilli();
+			
+			long tournamentRegistrationStartDate = tournament.getRegistrationStartDate(); 
+			long tournamentRegistrationEndDate = tournament.getRegistrationEndDate();
+			
+			if(currentTimeMillis < tournamentRegistrationStartDate) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration not yet started");
+			}
+			
+			if(currentTimeMillis > tournamentRegistrationEndDate) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration period has been completed");
+			}
+			
+			long registrationCount = TournamentParticipantService.getParticipantCount(params, queryParams);
+			if(registrationCount >= maxParticipation) {
+				throw new ResponseException(StatusCodes.CONFLICT, "Maximum number of participants registered");
+			}
+			
+			JSONObject reqBody = request.getBody();
+			
+			TournamentParticipantModel participant = (TournamentParticipantModel) JsonModelParser.parse(reqBody, TournamentParticipantModel.class);
+			participant.setTournamentId(tournament.getTournamentId());
+			
+			return TournamentParticipantService.saveParticipant(participant);
+		};
 		
 		ConcurrencyLimiter concurrencyLimiter = ConcurrencyLimiterFactory.getConcurrencyLimiter("TournamentRegistration:Participants", maxParticipation, organizationId, tournamentId);
 		
@@ -118,16 +109,15 @@ public class TournamentParticipantController implements Controller {
 		try {
 			newParticipant = (TournamentParticipantModel) concurrencyLimiter.executeCallBack(callBack);
 		} 
+		catch(ResponseException e) {
+			throw e;
+		}
 		catch(IllegalStateException e) {
 			ApplicationLogger.log(Level.INFO, "Registration queue is full", e);
 			throw new ResponseException(StatusCodes.TOO_MANY_REQUESTS, "Registration queue is full");
 		}
 		catch (Exception e) {
 			ApplicationLogger.log(Level.WARNING, e.getMessage(), e);
-			Throwable cause = e.getCause();
-			if(cause != null && cause instanceof ResponseException) {
-				throw (ResponseException) cause;
-			}
 			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Something went wrong, try again");
 		}
 		
@@ -206,7 +196,7 @@ public class TournamentParticipantController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/participants/:participant_id", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findParticipant(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		List<Model> participantDetails = TournamentParticipantService.findParticipantById(params);
 		
@@ -221,8 +211,8 @@ public class TournamentParticipantController implements Controller {
 	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/participants", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findParticipants(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<List<Model>> participantDetailsList = TournamentParticipantService.findParticipants(params, queryParams);
 		
@@ -244,7 +234,7 @@ public class TournamentParticipantController implements Controller {
 	public ResponseData updateParticipant(RequestData request) throws ResponseException {
 		
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		TournamentParticipantModel participant = (TournamentParticipantModel) JsonModelParser.parse(reqBody, TournamentParticipantModel.class);
 		
@@ -275,7 +265,7 @@ public class TournamentParticipantController implements Controller {
 			}
 		}
 
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		TournamentParticipantModel deletedParticipant = TournamentParticipantService.deleteParticipantById(params);
 		

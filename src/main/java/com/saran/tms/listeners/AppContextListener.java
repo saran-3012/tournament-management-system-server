@@ -35,7 +35,7 @@ import com.saran.tms.test.Main;
 
 public class AppContextListener implements ServletContextListener {
 
-	Thread schedulerThread;
+	Thread cleanupSchedulerThread;
     
 	public AppContextListener() {}
 
@@ -170,7 +170,7 @@ public class AppContextListener implements ServletContextListener {
         ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:Teams");
         ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:TeamMembers");
 
-        Runnable scheduler = () -> {
+        Runnable cleanupScheduler = () -> {
         	while(true) {
         		try {
 					Thread.sleep(1000 * 60 * 60);
@@ -182,9 +182,9 @@ public class AppContextListener implements ServletContextListener {
         	}
         };
         
-        schedulerThread = new Thread(scheduler);
-        schedulerThread.setDaemon(true);
-        schedulerThread.start();
+        cleanupSchedulerThread = new Thread(cleanupScheduler);
+        cleanupSchedulerThread.setDaemon(true);
+        cleanupSchedulerThread.start();
     	
 //    	Main.main(null); // TESTING
     }
@@ -208,7 +208,7 @@ public class AppContextListener implements ServletContextListener {
         
         // Stop scheduler thread
         try {        	
-        	schedulerThread.stop();
+        	cleanupSchedulerThread.stop();
         	ApplicationLogger.log(Level.CONFIG, "Scheduler thread stopped");
         }
         catch(Exception e) {

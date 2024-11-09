@@ -21,6 +21,9 @@ import com.saran.tms.pojo.GroupEntry;
 import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
+import com.saran.tms.utils.Utilities;
 
 public class TeamMemberService {
 	public static TeamMemberModel saveTeamMember(TeamMemberModel teamMember) throws ResponseException {
@@ -29,12 +32,15 @@ public class TeamMemberService {
 		return newTeamMember;
 	}
 	
-	public static List<Model> findTeamMemberById(Map<String, String> params) throws ResponseException{
+	public static List<Model> findTeamMemberById(Params params) throws ResponseException{
 		Dao teamMemberDao = new Dao(TeamMemberModel.class);
 		
 		Long teamMemberId = null;
 		try {
-			teamMemberId = Long.parseLong(params.get("member_id"));
+			teamMemberId = params.getLong("member_id");
+			if(teamMemberId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team Member id is not provided");
+			}
 		}
 		catch(NumberFormatException e) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid Team member id");
@@ -42,7 +48,10 @@ public class TeamMemberService {
 		
 		Long teamId = null;
 		try {
-			teamId = Long.parseLong(params.get("team_id"));
+			teamId = params.getLong("team_id");
+			if(teamId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team id is not provided");
+			}
 		}
 		catch(NumberFormatException e) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid Team id");
@@ -75,7 +84,7 @@ public class TeamMemberService {
 		return teamMemberDetails;
 	}
 	
-	public static List<List<Model>> findTeamMembers(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	public static List<List<Model>> findTeamMembers(Params params, QueryParams queryParams) throws ResponseException {
 		Dao teamMemberDao = new Dao(TeamMemberModel.class);
 		
 		Operators operator = null;
@@ -85,56 +94,63 @@ public class TeamMemberService {
 		
 		Long teamId = null;
 		try {
-			teamId = Long.parseLong(params.get("team_id"));
+			teamId = params.getLong("team_id");
+			if(teamId != null) {
+				teamMemberConditions.add(new ConditionEntry(Arrays.asList(operator), "team_id", Arrays.asList(Operators.EQUAL), teamId));
+				operator = Operators.AND;
+			}
 		}
 		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team id");
-		}
-		if(teamId != null) {
-			teamMemberConditions.add(new ConditionEntry(Arrays.asList(operator), "team_id", Arrays.asList(Operators.EQUAL), teamId));
-			operator = Operators.AND;
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid Team id");
 		}
 		
-		String userIds[] = queryParams.get("filter_userid");
-		Long userId = null;
-		if(userIds != null && userIds.length > 0) {
-			try {
-				userId = Long.parseLong(userIds[0]);
-			}
-			catch(NumberFormatException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
+		Long userId;
+		try {
+			userId = queryParams.getLong("filter_userid");
+			if(userId != null) {
+				teamMemberConditions.add(new ConditionEntry(Arrays.asList(operator), "user_id", Arrays.asList(Operators.EQUAL), userId));
+				operator = Operators.AND;
 			}
 		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
+		}
 		
-		if(userId != null) {
-			teamMemberConditions.add(new ConditionEntry(Arrays.asList(operator), "user_id", Arrays.asList(Operators.EQUAL), userId));
+		
+		
+		String userName = queryParams.get("filter_username");
+		if(userName != null) {
+			userConditions.add(new ConditionEntry(Arrays.asList(operator), "user_name", Arrays.asList(Operators.ILIKE), '%' + userName + '%'));
 			operator = Operators.AND;
 		}
 		
-		String userNames[] = queryParams.get("filter_username");
-		if(userNames != null && userNames.length > 0) {
-			userConditions.add(new ConditionEntry(Arrays.asList(operator), "user_name", Arrays.asList(Operators.ILIKE), '%' + userNames[0] + '%'));
-			operator = Operators.AND;
+		Integer limit;
+		Integer page;
+		
+		try {
+			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
+			if(limit < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
 		}
 		
-		Integer limit = 20;
-		Integer page = 0;
-		
-		String limits[] = queryParams.get("limit");
-		String pages[] = queryParams.get("page");
-		
-		if(limits != null && limits.length > 0) {
-			limit = Integer.parseInt(limits[0]);
+		try {
+			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
+			if(page < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
+			}
 		}
-		
-		if(pages != null && pages.length > 0) {
-			page = Integer.parseInt(pages[0]);
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
 		}
 		
 		Integer offset = limit * page;
 		
-		String noLimit[] = queryParams.get("exclude_limit");
-		if(noLimit != null && noLimit.length > 0 && noLimit[0].equals("true")) {
+		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
+		if(excludeLimit != null && excludeLimit) {
 			limit = null;
 			offset = null;
 		}
@@ -159,12 +175,15 @@ public class TeamMemberService {
 		return teamMemberDetailsList;
 	}
 	
-	public static Long getTeamMemberCount(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	public static Long getTeamMemberCount(Params params, QueryParams queryParams) throws ResponseException {
 		Dao teamMemberDao = new Dao(TeamMemberModel.class);
 		
 		Long teamId = null;
 		try {
-			teamId = Long.parseLong(params.get("team_id"));
+			teamId = params.getLong("team_id");
+			if(teamId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team id is not provided");
+			}
 		}
 		catch(NumberFormatException e) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid Team id");
@@ -185,14 +204,17 @@ public class TeamMemberService {
 		
 	}
 	
-	public static TeamMemberModel deleteTeamMemberById(Map<String, String> params) throws ResponseException {
+	public static TeamMemberModel deleteTeamMemberById(Params params) throws ResponseException {
 		
 		Dao teamMemberDao = new Dao(TeamMemberModel.class);
 		
 		Long teamMemberId = null;
 		
 		try {
-			teamMemberId = Long.parseLong(params.get("member_id"));
+			teamMemberId = params.getLong("member_id");
+			if(teamMemberId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team member id is not provided");
+			}
 		}
 		catch(NumberFormatException e) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team member id");

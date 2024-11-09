@@ -1,7 +1,6 @@
 package com.saran.tms.controllers;
 
 import java.util.List;
-import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,6 +14,8 @@ import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.OrganizationModel;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.OrganizationService;
@@ -42,7 +43,7 @@ public class OrganizationController implements Controller {
 	
 	@Route(path="/orgs/:org_id", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findOrganization(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		List<Model> orgDetails = OrganizationService.findOrganizationById(params);
 		
@@ -57,8 +58,8 @@ public class OrganizationController implements Controller {
 	
 	@Route(path="/orgs", method="GET")
 	public ResponseData findOrganizations(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<List<Model>> orgDetailsList = OrganizationService.findOrganizations(params, queryParams);
 		
@@ -79,7 +80,7 @@ public class OrganizationController implements Controller {
 	@Route(path="/orgs/:org_id", method="PUT", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
 	public ResponseData updateOrganization(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		OrganizationModel org = (OrganizationModel) JsonModelParser.parse(reqBody, OrganizationModel.class);
 		
@@ -102,7 +103,7 @@ public class OrganizationController implements Controller {
 	
 	@Route(path="/orgs/:org_id", method="DELETE")
 	public ResponseData deleteOrganization(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		OrganizationModel deletedOrg = OrganizationService.deleteOrganizationById(params);
 		

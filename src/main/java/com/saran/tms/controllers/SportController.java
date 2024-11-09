@@ -15,6 +15,8 @@ import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.SportModel;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
 import com.saran.tms.routers.RequestData;
 import com.saran.tms.routers.ResponseData;
 import com.saran.tms.services.SportService;
@@ -42,7 +44,7 @@ public class SportController implements Controller {
 	
 	@Route(path="/sports/:sport_id", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findSport(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		SportModel sport = SportService.findSportById(params);
 		
@@ -57,8 +59,8 @@ public class SportController implements Controller {
 	
 	@Route(path="/sports", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findSports(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
-		Map<String, String[]> queryParams = request.getQueryParams();
+		Params params = request.getParams();
+		QueryParams queryParams = request.getQueryParams();
 		
 		List<Model> sports = SportService.findSports(params, queryParams);
 		
@@ -80,7 +82,7 @@ public class SportController implements Controller {
 	@Route(path="/sports/:sport_id", method="PUT")
 	public ResponseData updateSport(RequestData request) throws ResponseException {
 		JSONObject reqBody = request.getBody();
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 
 		SportModel sport = (SportModel) JsonModelParser.parse(reqBody, SportModel.class);
 		
@@ -99,7 +101,7 @@ public class SportController implements Controller {
 	
 	@Route(path="/sports/:sport_id", method="DELETE")
 	public ResponseData deleteOrganization(RequestData request) throws ResponseException {
-		Map<String, String> params = request.getParams();
+		Params params = request.getParams();
 		
 		SportModel deletedSport = SportService.deleteSportById(params);
 		

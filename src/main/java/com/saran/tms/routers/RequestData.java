@@ -22,17 +22,17 @@ public class RequestData {
 	
 	private HttpServletRequest request;
 	
-	private Map<String, String[]> queryParams;
 	private Map<String, String> headers;
-	private Map<String, String> params;
+	private Params params;
+	private QueryParams queryParams;
 	private Map<String, Cookie> cookies;
 	private JSONObject body;
 	
 	public RequestData(HttpServletRequest request, Map<String, String> params) throws ResponseException {
 		this.request = request;
-		this.queryParams = request.getParameterMap();
 		this.headers = getHeaders(request);
-		this.params = params;
+		this.params = new Params(params);
+		this.queryParams = new QueryParams(request.getParameterMap());
 		try {
 			String methodType = request.getMethod();
 			if(!methodType.equals("GET")) {
@@ -86,17 +86,17 @@ public class RequestData {
 		
 		return cookies;
 	}
+
+	public Params getParams() {
+		return params;
+	}
 	
-	public Map<String, String[]> getQueryParams() {
+	public QueryParams getQueryParams() {
 		return queryParams;
 	}
 
 	public Map<String, String> getHeaders() {
 		return headers;
-	}
-
-	public Map<String, String> getParams() {
-		return params;
 	}
 
 	public JSONObject getBody() {

@@ -73,7 +73,10 @@ public class StatementFactory {
 		if(tableConditionEntries != null) {
 			for(TableConditionEntry tableConditionEntry : tableConditionEntries) {
 				for(ConditionEntry conditionEntry : tableConditionEntry.getColumnContitions()) {
-					setObject(pst, parameterIndex++, conditionEntry.getValue());
+					Object value = conditionEntry.getValue();
+					if(value != null) {						
+						setObject(pst, parameterIndex++, conditionEntry.getValue());
+					}
 				}
 			}
 		}

@@ -3,7 +3,6 @@ package com.saran.tms.services;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import com.saran.tms.dao.Dao;
 import com.saran.tms.enums.JoinTypes;
@@ -19,6 +18,9 @@ import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.OrderEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
+import com.saran.tms.utils.Utilities;
 
 public class TournamentEventParticipantService {
 	
@@ -27,21 +29,26 @@ public class TournamentEventParticipantService {
 		TournamentEventParticipantModel newTournamentEventParticipant = (TournamentEventParticipantModel) tournamentEventParticipantDao.saveAndReturn(tournamentEventParticipant, Arrays.asList("*"));
 		return newTournamentEventParticipant;
 	}
+	
 	public static List<Model> saveAllTournamentEventParticipant(List<Model> tournamentEventParticipants) throws ResponseException {
 		Dao tournamentEventParticipantDao = new Dao(TournamentEventParticipantModel.class);
 		List<Model> newTournamentEventParticipants = tournamentEventParticipantDao.saveAllAndReturn(tournamentEventParticipants, Arrays.asList("*"));
 		return newTournamentEventParticipants;
 	}
-	public static List<List<Model>> findTournamentEventParticipants(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	
+	public static List<List<Model>> findTournamentEventParticipants(Params params, QueryParams queryParams) throws ResponseException {
 		Dao tournamentEventParticipantDao = new Dao(TournamentEventParticipantModel.class);
 		
 		List<ConditionEntry> eventParticipantConditions = new ArrayList<>();
 		List<ConditionEntry> userConditions = new ArrayList<>();
 		List<ConditionEntry> participantConditions = new ArrayList<>();
 		
-		Long eventId = null;
+		Long eventId;
 		try {
-			eventId = Long.parseLong(params.get("event_id"));
+			eventId = params.getLong("event_id");
+			if(eventId == null) {				
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Event id is not provided");
+			}
 		}
 		catch(NumberFormatException e) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid event id");
@@ -50,58 +57,71 @@ public class TournamentEventParticipantService {
 		eventParticipantConditions.add(new ConditionEntry(null, "tournament_event_id", Arrays.asList(Operators.EQUAL), eventId));
 		Operators operator = Operators.AND;
 		
-		String userNames[] = queryParams.get("filter_participantname");
-		if(userNames != null && userNames.length > 0) {
-			userConditions.add(new ConditionEntry(Arrays.asList(operator), "user_name", Arrays.asList(Operators.ILIKE), '%' + userNames[0] + '%'));
-			operator = Operators.AND;
+		String userName = queryParams.get("filter_participantname");
+		if(userName != null) {
+			userConditions.add(new ConditionEntry(Arrays.asList(operator), "user_name", Arrays.asList(Operators.ILIKE), '%' + userName + '%'));
 		}
 		
-		String userIds[] = queryParams.get("filter_userid");
-		if(userIds != null && userIds.length > 0) {
-			Long userId = null;
-			try {
-				userId = Long.parseLong(userIds[0]);
-			}
-			catch(NumberFormatException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
-			}
+		
+		try {
+			Long userId = queryParams.getLong("filter_userid");
 			if(userId != null) {
 				userConditions.add(new ConditionEntry(Arrays.asList(operator), "user_id", Arrays.asList(Operators.EQUAL), userId));
-				operator = Operators.AND;
 			}
 		}
-		
-		String tournamentId = params.get("tournament_id");
-		if(tournamentId != null) {
-			participantConditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_id", Arrays.asList(Operators.EQUAL), Long.parseLong(tournamentId)));
-			operator = Operators.AND;
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
 		}
 		
 		
-		String participantStatuses[] = queryParams.get("filter_participantstatus");
-		if(participantStatuses != null && participantStatuses.length > 0) {
-			participantConditions.add(new ConditionEntry(Arrays.asList(operator), "participant_status", Arrays.asList(Operators.EQUAL), Short.parseShort(participantStatuses[0])));
-			operator = Operators.AND;
+		try {
+			Long tournamentId = params.getLong("tournament_id");
+			if(tournamentId != null) {
+				participantConditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_id", Arrays.asList(Operators.EQUAL), tournamentId));
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
+		}
+	
+		
+		try {
+			Short participantStatus = queryParams.getShort("filter_participantstatus");
+			if(participantStatus != null) {				
+				participantConditions.add(new ConditionEntry(Arrays.asList(operator), "participant_status", Arrays.asList(Operators.EQUAL), participantStatus));
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid participant status");
 		}
 		
-		Integer limit = 20;
-		Integer page = 0;
+		Integer limit;
+		Integer page;
 		
-		String limits[] = queryParams.get("limit");
-		String pages[] = queryParams.get("page");
-		
-		if(limits != null && limits.length > 0) {
-			limit = Integer.parseInt(limits[0]);
+		try {
+			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
+			if(limit < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
 		}
 		
-		if(pages != null && pages.length > 0) {
-			page = Integer.parseInt(pages[0]);
+		try {
+			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
+			if(page < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
 		}
 		
 		Integer offset = limit * page;
 		
-		String noLimit[] = queryParams.get("exclude_limit");
-		if(noLimit != null && noLimit.length > 0 && noLimit[0].equals("true")) {
+		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
+		if(excludeLimit != null && excludeLimit) {
 			limit = null;
 			offset = null;
 		}

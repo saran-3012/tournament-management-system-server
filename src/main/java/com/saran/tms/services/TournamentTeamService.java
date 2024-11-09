@@ -21,6 +21,9 @@ import com.saran.tms.pojo.GroupEntry;
 import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
+import com.saran.tms.utils.Utilities;
 
 public class TournamentTeamService {
 	public static TournamentTeamModel saveTeam(TournamentTeamModel team) throws ResponseException {
@@ -29,8 +32,30 @@ public class TournamentTeamService {
 		return newTeam;
 	}
 	
-	public static List<Model> findTeamById(Map<String, String> params) throws ResponseException {
+	public static List<Model> findTeamById(Params params) throws ResponseException {
 		Dao teamDao = new Dao(TournamentTeamModel.class);
+		
+		Long teamId;
+		try {
+			teamId = params.getLong("team_id");
+			if(teamId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team id");
+		}
+		
+		Long tournamentId;
+		try {
+			tournamentId = params.getLong("tournament_id");
+			if(tournamentId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Tournament id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
+		}
 		
 		List<Model> teamDetails = teamDao.findOneWithJoin(
 			Arrays.asList(
@@ -42,8 +67,8 @@ public class TournamentTeamService {
 			),
 			Arrays.asList(
 				new TableConditionEntry(TableNames.TOURNAMENT_TEAMS, Arrays.asList(
-						new ConditionEntry(null, "team_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("team_id"))),
-						new ConditionEntry(Arrays.asList(Operators.AND), "tournament_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("tournament_id")))
+						new ConditionEntry(null, "team_id", Arrays.asList(Operators.EQUAL), teamId),
+						new ConditionEntry(Arrays.asList(Operators.AND), "tournament_id", Arrays.asList(Operators.EQUAL), tournamentId)
 					)	
 				)
 			)
@@ -53,56 +78,75 @@ public class TournamentTeamService {
 	}
 	
 	
-	public static List<List<Model>> findTeams(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	public static List<List<Model>> findTeams(Params params, QueryParams queryParams) throws ResponseException {
 		
-		String needWinCount[] = queryParams.get("include_wincount");
-		if(needWinCount != null && needWinCount.length > 0 && needWinCount[0].equals("true")) {
+		Boolean needWinCount = queryParams.getBoolean("include_wincount");
+		if(needWinCount != null && needWinCount) {
 			return findTeamsWithWinCount(params, queryParams);
 		}
 		
 		
 		Dao teamDao = new Dao(TournamentTeamModel.class);
 		
-		Operators operator = null;
-		
 		List<ConditionEntry> conditions = new ArrayList<>();
 		
-		String teamNames[] = queryParams.get("filter_teamname");
-		if(teamNames != null && teamNames.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_name", Arrays.asList(Operators.ILIKE), '%' + teamNames[0] + '%'));
-			operator = Operators.AND;
+		Long tournamentId;
+		try {
+			tournamentId = params.getLong("tournament_id");
+			if(tournamentId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Tournament id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
+		}
+		conditions.add(new ConditionEntry(null, "tournament_id", Arrays.asList(Operators.EQUAL), tournamentId));
+		Operators operator = Operators.AND;
+		
+		
+		String teamName = queryParams.get("filter_teamname");
+		if(teamName != null) {
+			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_name", Arrays.asList(Operators.ILIKE), '%' + teamName + '%'));
+		}
+	
+		
+		try {
+			Short teamStatus = queryParams.getShort("filter_teamstatus");
+			if(teamStatus != null) {
+				conditions.add(new ConditionEntry(Arrays.asList(operator), "team_status", Arrays.asList(Operators.EQUAL), teamStatus));
+			}			
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team status");
 		}
 		
-		String tournamentId = params.get("tournament_id");
-		if(tournamentId != null) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_id", Arrays.asList(Operators.EQUAL), Long.parseLong(tournamentId)));
-			operator = Operators.AND;
+		Integer limit;
+		Integer page;
+		
+		try {
+			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
+			if(limit < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
 		}
 		
-		String teamStatuses[] = queryParams.get("filter_teamstatus");
-		if(teamStatuses != null && teamStatuses.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_status", Arrays.asList(Operators.EQUAL), Short.parseShort(teamStatuses[0])));
-			operator = Operators.AND;
+		try {
+			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
+			if(page < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
+			}
 		}
-		
-		Integer limit = 20;
-		Integer page = 0;
-		
-		String limits[] = queryParams.get("limit");
-		String pages[] = queryParams.get("page");
-		
-		if(limits != null && limits.length > 0) {
-			limit = Integer.parseInt(limits[0]);
-		}
-		
-		if(pages != null && pages.length > 0) {
-			page = Integer.parseInt(pages[0]);
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
 		}
 		
 		Integer offset = limit * page;
 		
-		String noLimit[] = queryParams.get("exclude_limit");
-		if(noLimit != null && noLimit.length > 0 && noLimit[0].equals("true")) {
+		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
+		if(excludeLimit != null && excludeLimit) {
 			limit = null;
 			offset = null;
 		}
@@ -128,50 +172,69 @@ public class TournamentTeamService {
 		return teamDetailsList;
 	}
 	
-	private static List<List<Model>> findTeamsWithWinCount(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	private static List<List<Model>> findTeamsWithWinCount(Params params, QueryParams queryParams) throws ResponseException {
 		
 		Dao teamDao = new Dao(TournamentTeamModel.class);
 		
-		Operators operator = null;
-		
 		List<ConditionEntry> conditions = new ArrayList<>();
 		
-		String teamNames[] = queryParams.get("filter_teamname");
-		if(teamNames != null && teamNames.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_name", Arrays.asList(Operators.ILIKE), '%' + teamNames[0] + '%'));
-			operator = Operators.AND;
+		Long tournamentId;
+		try {
+			tournamentId = params.getLong("tournament_id");
+			if(tournamentId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Tournament id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
+		}
+		conditions.add(new ConditionEntry(null, "tournament_id", Arrays.asList(Operators.EQUAL), tournamentId));
+		Operators operator = Operators.AND;
+		
+		
+		String teamName = queryParams.get("filter_teamname");
+		if(teamName != null) {
+			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_name", Arrays.asList(Operators.ILIKE), '%' + teamName + '%'));
+		}
+	
+		
+		try {
+			Short teamStatus = queryParams.getShort("filter_teamstatus");
+			if(teamStatus != null) {
+				conditions.add(new ConditionEntry(Arrays.asList(operator), "team_status", Arrays.asList(Operators.EQUAL), teamStatus));
+			}			
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team status");
 		}
 		
-		String tournamentId = params.get("tournament_id");
-		if(tournamentId != null) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_id", Arrays.asList(Operators.EQUAL), Long.parseLong(tournamentId)));
-			operator = Operators.AND;
+		Integer limit;
+		Integer page;
+		
+		try {
+			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
+			if(limit < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
 		}
 		
-		String teamStatuses[] = queryParams.get("filter_teamstatus");
-		if(teamStatuses != null && teamStatuses.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_status", Arrays.asList(Operators.EQUAL), Short.parseShort(teamStatuses[0])));
-			operator = Operators.AND;
+		try {
+			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
+			if(page < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
+			}
 		}
-		
-		Integer limit = 20;
-		Integer page = 0;
-		
-		String limits[] = queryParams.get("limit");
-		String pages[] = queryParams.get("page");
-		
-		if(limits != null && limits.length > 0) {
-			limit = Integer.parseInt(limits[0]);
-		}
-		
-		if(pages != null && pages.length > 0) {
-			page = Integer.parseInt(pages[0]);
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
 		}
 		
 		Integer offset = limit * page;
 		
-		String noLimit[] = queryParams.get("exclude_limit");
-		if(noLimit != null && noLimit.length > 0 && noLimit[0].equals("true")) {
+		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
+		if(excludeLimit != null && excludeLimit) {
 			limit = null;
 			offset = null;
 		}
@@ -209,11 +272,30 @@ public class TournamentTeamService {
 		return teamDetailsList;
 	}
 	
-	public static List<Model> findUserTeam(Map<String, String> params) throws ResponseException {
+	public static List<Model> findUserTeam(Params params) throws ResponseException {
 		Dao teamDao = new Dao(TournamentTeamModel.class);
 		
 		Long userId = Long.parseLong(params.get("user_id"));
-		Long tournamentId = Long.parseLong(params.get("tournament_id"));
+		try {
+			userId = params.getLong("user_id");
+			if(userId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "User id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
+		}
+		
+		Long tournamentId;
+		try {
+			tournamentId = params.getLong("tournament_id");
+			if(tournamentId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Tournament id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
+		}
 		
 		List<Model> teamDetails = teamDao.findOneWithJoin(
 				Arrays.asList(
@@ -241,29 +323,38 @@ public class TournamentTeamService {
 		
 	}
 	
-	public static Long getTeamCount(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	public static Long getTeamCount(Params params, QueryParams queryParams) throws ResponseException {
 		Dao teamDao = new Dao(TournamentTeamModel.class);
 		
-		Operators operator = null;
-		
 		List<ConditionEntry> conditions = new ArrayList<>();
-		
-		String teamNames[] = queryParams.get("filter_teamname");
-		if(teamNames != null && teamNames.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_name", Arrays.asList(Operators.ILIKE), '%' + teamNames[0] + '%'));
-			operator = Operators.AND;
+		Long tournamentId;
+		try {
+			tournamentId = params.getLong("tournament_id");
+			if(tournamentId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Tournament id is not provided");
+			}
 		}
-		
-		String tournamentId = params.get("tournament_id");
-		if(tournamentId != null) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_id", Arrays.asList(Operators.EQUAL), Long.parseLong(tournamentId)));
-			operator = Operators.AND;
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
 		}
+		conditions.add(new ConditionEntry(null, "tournament_id", Arrays.asList(Operators.EQUAL), tournamentId));
+		Operators operator = Operators.AND;
 		
-		String teamStatuses[] = queryParams.get("filter_teamstatus");
-		if(teamStatuses != null && teamStatuses.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_status", Arrays.asList(Operators.EQUAL), Short.parseShort(teamStatuses[0])));
-			operator = Operators.AND;
+		
+		String teamName = queryParams.get("filter_teamname");
+		if(teamName != null) {
+			conditions.add(new ConditionEntry(Arrays.asList(operator), "team_name", Arrays.asList(Operators.ILIKE), '%' + teamName + '%'));
+		}
+	
+		
+		try {
+			Short teamStatus = queryParams.getShort("filter_teamstatus");
+			if(teamStatus != null) {
+				conditions.add(new ConditionEntry(Arrays.asList(operator), "team_status", Arrays.asList(Operators.EQUAL), teamStatus));
+			}			
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team status");
 		}
 		
 		Map<GroupEntry, Functions> fieldFunctions = new HashMap<>();
@@ -276,18 +367,42 @@ public class TournamentTeamService {
 		return aggregateModel.getCount();
 	}
 
-	public static TournamentTeamModel updateTeamById(Map<String, String> params, TournamentTeamModel team) throws ResponseException {
+	public static TournamentTeamModel updateTeamById(Params params, TournamentTeamModel team) throws ResponseException {
 		Dao teamDao = new Dao(TournamentTeamModel.class);
-		List<Model> updatedTeams = teamDao.updateAndReturn(team, Arrays.asList(new ConditionEntry(null, "team_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("team_id")))), Arrays.asList("*"));
+		
+		Long teamId;
+		try {
+			teamId = params.getLong("team_id");
+			if(teamId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team id");
+		}
+		
+		List<Model> updatedTeams = teamDao.updateAndReturn(team, Arrays.asList(new ConditionEntry(null, "team_id", Arrays.asList(Operators.EQUAL), teamId)), Arrays.asList("*"));
 		if(updatedTeams == null || updatedTeams.isEmpty()) {
 			throw new ResponseException(StatusCodes.NOT_FOUND, "Team not found");
 		}
 		return (TournamentTeamModel) updatedTeams.get(0);
 	}
 	
-	public static TournamentTeamModel deleteTeamById(Map<String, String> params) throws ResponseException {
+	public static TournamentTeamModel deleteTeamById(Params params) throws ResponseException {
 		Dao teamDao = new Dao(TournamentTeamModel.class);
-		List<Model> deletedTeams = teamDao.deleteAndReturn(Arrays.asList(new ConditionEntry(null, "team_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("team_id")))), Arrays.asList("*"));
+		
+		Long teamId;
+		try {
+			teamId = params.getLong("team_id");
+			if(teamId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Team id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid team id");
+		}
+		
+		List<Model> deletedTeams = teamDao.deleteAndReturn(Arrays.asList(new ConditionEntry(null, "team_id", Arrays.asList(Operators.EQUAL), teamId)), Arrays.asList("*"));
 		if(deletedTeams == null || deletedTeams.isEmpty()) {
 			throw new ResponseException(StatusCodes.NOT_FOUND, "Team not found");
 		}

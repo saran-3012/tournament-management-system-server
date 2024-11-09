@@ -12,6 +12,9 @@ import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.SportModel;
 import com.saran.tms.pojo.ConditionEntry;
+import com.saran.tms.routers.Params;
+import com.saran.tms.routers.QueryParams;
+import com.saran.tms.utils.Utilities;
 
 public class SportService {
 	public static SportModel saveSport(SportModel sport) throws ResponseException {
@@ -20,12 +23,22 @@ public class SportService {
 		return newSport;
 	}
 	
-	public static SportModel findSportById(Map<String, String> params) throws ResponseException {
+	public static SportModel findSportById(Params params) throws ResponseException {
 		Dao sportDao = new Dao(SportModel.class);
+		Long sportId;
+		try {
+			sportId = params.getLong("sport_id");
+			if(sportId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Sport id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sport id");
+		}
 		SportModel sport = (SportModel) sportDao.findOne(
 				Arrays.asList("*"), 
 				Arrays.asList(
-						new ConditionEntry(null, "sport_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("sport_id")))
+						new ConditionEntry(null, "sport_id", Arrays.asList(Operators.EQUAL), sportId)
 				)
 			);
 		if(sport == null) {
@@ -48,59 +61,104 @@ public class SportService {
 		return reqSport;
 	}
 	
-	public static List<Model> findSports(Map<String, String> params, Map<String, String[]> queryParams) throws ResponseException {
+	public static List<Model> findSports(Params params, QueryParams queryParams) throws ResponseException {
 		Dao sportDao = new Dao(SportModel.class);
 		
 		List<ConditionEntry> conditions = new ArrayList<>();
 		
 		Operators operator = null;
 		
-		String sportNames[] = queryParams.get("filter_sportname");
-		if(sportNames != null && sportNames.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "sport_name", Arrays.asList(Operators.ILIKE), '%' + sportNames[0] + '%'));
+		String sportName = queryParams.get("filter_sportname");
+		if(sportName != null) {
+			conditions.add(new ConditionEntry(Arrays.asList(operator), "sport_name", Arrays.asList(Operators.ILIKE), '%' + sportName + '%'));
 			operator = Operators.AND;
 		}
 		
-		String sportTypes[] = queryParams.get("filter_sporttype");
-		if(sportTypes != null && sportTypes.length > 0) {
-			conditions.add(new ConditionEntry(Arrays.asList(operator), "sport_type", Arrays.asList(Operators.EQUAL), Short.parseShort(sportTypes[0])));
+		try {
+			Short sportType = queryParams.getShort("filter_sporttype");
+			if(sportType != null) {
+				conditions.add(new ConditionEntry(Arrays.asList(operator), "sport_type", Arrays.asList(Operators.EQUAL), sportType));
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sport type");
 		}
 		
-		Integer limit = 20;
-		Integer page = 0;
+		Integer limit;
+		Integer page;
 		
-		String limits[] = queryParams.get("limit");
-		String pages[] = queryParams.get("page");
-		
-		if(limits != null && limits.length > 0) {
-			limit = Integer.parseInt(limits[0]);
+		try {
+			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
+			if(limit < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
 		}
 		
-		if(pages != null && pages.length > 0) {
-			page = Integer.parseInt(pages[0]);
+		try {
+			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
+			if(page < 0) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
 		}
 		
 		Integer offset = limit * page;
 		
+		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
+		if(excludeLimit != null && excludeLimit) {
+			limit = null;
+			offset = null;
+		}
+		
 		List<Model> sports = sportDao.findAll(Arrays.asList("*"), conditions, limit, offset);
+		
 		if(sports == null || sports.isEmpty()) {
 			throw new ResponseException(StatusCodes.NOT_FOUND, "Sports not found");
 		}
 		return sports;
 	}
 
-	public static SportModel updateSportById(Map<String, String> params, SportModel sport) throws ResponseException {
+	public static SportModel updateSportById(Params params, SportModel sport) throws ResponseException {
 		Dao sportDao = new Dao(SportModel.class);
-		List<Model> updatedSports = sportDao.updateAndReturn(sport, Arrays.asList(new ConditionEntry(null, "sport_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("sport_id")))), Arrays.asList("*"));
+		
+		Long sportId;
+		try {
+			sportId = params.getLong("sport_id");
+			if(sportId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Sport id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sport id");
+		}
+		
+		List<Model> updatedSports = sportDao.updateAndReturn(sport, Arrays.asList(new ConditionEntry(null, "sport_id", Arrays.asList(Operators.EQUAL), sportId)), Arrays.asList("*"));
 		if(updatedSports == null || updatedSports.isEmpty()) {
 			throw new ResponseException(StatusCodes.NOT_FOUND, "Sport not found");
 		}
 		return (SportModel) updatedSports.get(0);
 	}
 	
-	public static SportModel deleteSportById(Map<String, String> params) throws ResponseException {
+	public static SportModel deleteSportById(Params params) throws ResponseException {
 		Dao sportDao = new Dao(SportModel.class);
-		List<Model> deletedSports = sportDao.deleteAndReturn(Arrays.asList(new ConditionEntry(null, "sport_id", Arrays.asList(Operators.EQUAL), Long.parseLong(params.get("sport_id")))), Arrays.asList("*"));
+		
+		Long sportId;
+		try {
+			sportId = params.getLong("sport_id");
+			if(sportId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Sport id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sport id");
+		}
+		
+		List<Model> deletedSports = sportDao.deleteAndReturn(Arrays.asList(new ConditionEntry(null, "sport_id", Arrays.asList(Operators.EQUAL), sportId)), Arrays.asList("*"));
 		if(deletedSports == null || deletedSports.isEmpty()) {
 			throw new ResponseException(StatusCodes.NOT_FOUND, "Sport not found");
 		}
