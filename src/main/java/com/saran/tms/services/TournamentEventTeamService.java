@@ -30,7 +30,7 @@ public class TournamentEventTeamService {
 		return newTournamentEventTeam;
 	}
 	
-	public static List<Model> saveAllTournamentEventTeam(List<Model> tournamentEventTeams) throws ResponseException {
+	public static List<Model> saveAllTournamentEventTeams(List<Model> tournamentEventTeams) throws ResponseException {
 		Dao tournamentEventTeamDao = new Dao(TournamentEventTeamModel.class);
 		List<Model> newTournamentEventTeams = tournamentEventTeamDao.saveAllAndReturn(tournamentEventTeams, Arrays.asList("*"));
 		return newTournamentEventTeams;
@@ -136,5 +136,53 @@ public class TournamentEventTeamService {
 		}
 		
 		return tournamentEventTeamsDetails;
+	}
+	
+	public static List<Model> deleteTournamentEventTeamBatch(Params params) throws ResponseException {
+		Dao tournamentEventTeamDao = new Dao(TournamentEventTeamModel.class);
+		
+		Long eventId;
+		try {
+			eventId = params.getLong("event_id");
+			if(eventId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Event id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid event id");
+		}
+		String eventTeamIds[] = params.getStringArray("event_team_id");
+		
+		int n = eventTeamIds.length;
+		if(n == 0) {
+			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Event team id is not provided");
+		}
+		
+		List<ConditionEntry> conditionEntries = new ArrayList<>();
+		
+		conditionEntries.add(new ConditionEntry(null, "tournament_event_id", Arrays.asList(Operators.EQUAL), eventId));
+		
+		boolean isFirstId = true;
+		for(String eventTeamId : eventTeamIds) {
+			Long eTeamId;
+			try {
+				eTeamId = Long.parseLong(eventTeamId);
+			}
+			catch(NumberFormatException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid event team id");
+			}
+			if(isFirstId) {				
+				conditionEntries.add(new ConditionEntry(Arrays.asList(Operators.AND, Operators.OPEN_BRACKET), "tournament_event_team_id", Arrays.asList(Operators.EQUAL), eTeamId));
+				isFirstId = false;
+			}
+			else {
+				conditionEntries.add(new ConditionEntry(Arrays.asList(Operators.OR), "tournament_event_team_id", Arrays.asList(Operators.EQUAL), eTeamId));
+			}
+		}
+		conditionEntries.add(new ConditionEntry(Arrays.asList(Operators.CLOSED_BRACKET), null, null, null));
+		
+		List<Model> deletedEventTeams = tournamentEventTeamDao.deleteAndReturn(conditionEntries, Arrays.asList("*"));
+		
+		return (deletedEventTeams == null)? new ArrayList<>() : deletedEventTeams;
 	}
 }

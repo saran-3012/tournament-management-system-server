@@ -37,7 +37,7 @@
     <!-- CORS Filter -->
 
     
-    <filter>
+   <!--  <filter>
         <filter-name>CorsFilter</filter-name>
         <filter-class>com.saran.tms.filters.CorsFilter</filter-class>
     </filter>
@@ -50,7 +50,7 @@
     <filter-mapping>
         <filter-name>CorsFilter</filter-name>
         <url-pattern>/auth/*</url-pattern>
-    </filter-mapping>
+    </filter-mapping> -->
     
 
     

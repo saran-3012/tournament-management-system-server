@@ -158,6 +158,7 @@ public class Dao {
 		}
 
 		DataBase pdb = new PostgresDataBase();
+		
 		List<Map<String, Map<String, Object>>> objMapList = pdb.findAll(
 				new TableColumnEntry(tableNameEnum, requiredFields), 
 				new TableConditionEntry(tableNameEnum, requiredConditions),
@@ -177,6 +178,17 @@ public class Dao {
 				)
 			);
 		}
+		
+
+		
+		
+		
+		
+		
+		
+		
+		
+		
 		
 		return models;
 	}

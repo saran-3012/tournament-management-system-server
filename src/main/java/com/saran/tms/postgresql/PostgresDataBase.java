@@ -30,23 +30,61 @@ import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.OrderEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
+import com.saran.tms.utils.Utilities;
 
 public class PostgresDataBase implements DataBase {
 	
-	private static String handleSQLException(String sqlState) {
-		 switch (sqlState) {
+	private static ResponseException handleSQLException(SQLException e) {
+		String message = e.getMessage();
+		String[] detailParts;
+		 switch (e.getSQLState()) {
 	     	case "23505":
-	     		return "The provided field is duplicated for this entity";
+	     		detailParts = message.split("=");
+	     		if(detailParts.length > 1) {
+	     			String keyParts[] = detailParts[0].split("Detail: Key \\(")[1].replaceAll("[()]", "").split(", ");
+	     			String valueParts[] = detailParts[1].split("\\)")[0].replaceAll("[()]", "").split(", ");
+	     			
+	     			StringBuilder errString = new StringBuilder("The provided ");
+	     			int n = keyParts.length;
+	     			errString.append(Utilities.toCamelCase(keyParts[0])).append(" : ").append(valueParts[0]);
+	     			for(int i=1; i<n; i++) {
+	     				errString.append(", ").append(Utilities.toCamelCase(keyParts[i])).append(" : ").append(valueParts[i]);
+	     			}
+	     			errString.append((n == 1)? " is already present" : " are already present");
+	     			return new ResponseException(StatusCodes.CONFLICT, errString.toString());
+	     		}
+	            return new ResponseException(StatusCodes.CONFLICT, "The provided field is already present");
+	            
 	        case "23502":
-	            return "The provided field cannot be Empty or Null value";
+	        	
+	            detailParts = message.split("null value in column \"");
+	            if (detailParts.length > 1) {
+	                String columnName = detailParts[1].split("\"")[0]; 
+	                return new ResponseException(StatusCodes.BAD_REQUEST, columnName + " cannot be null");
+	            }
+	            return new ResponseException(StatusCodes.BAD_REQUEST, "The provided field cannot be Empty or Null value");
+	            
 	        case "23503":
-	            return "Relationship does not exists for this entity";
+	        	detailParts = message.split("Key \\(");
+	            if (detailParts.length > 1) {
+	                String keyValuePart = detailParts[1];  
+	                
+	                String[] keyValue = keyValuePart.split("\\)=");
+	                String childColumnName = keyValue[0];  
+	                String providedValue = keyValue[1].replaceAll("[()]", "").split(" ")[0]; 
+
+	                String parentTable = message.split("present in table \"")[1].split("\"")[0];
+
+	                return new ResponseException(StatusCodes.BAD_REQUEST, "Relationship " + Utilities.toCamelCase(childColumnName) + ": " + providedValue + " is not present in " + Utilities.toCamelCase(parentTable));
+	            }
+	            return new ResponseException(StatusCodes.BAD_REQUEST, "Relationship does not exists for this entity");
 	        case "42601":
-	            return "Query is not well formed";
+	        	ApplicationLogger.log(Level.SEVERE, message, e);
+	            return new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to process the request");
 	        case "08001":
-	            return "Connection failed during operation";
+	        	return new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Connection failed during request");
 	        default:
-	            return "Unable to process the content";
+	        	return new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to process the request");
 		 }
 	}
 	
@@ -67,11 +105,15 @@ public class PostgresDataBase implements DataBase {
 		try {
 			pst = StatementFactory.createPreparedStatement(con, qd);
 		} 
+		catch(IllegalArgumentException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, e.getMessage());
+		}
 		catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Error during preparing statement", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
+			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to process the request");
 		}
+		
 		
 		int affectedRows = 0;
 		
@@ -81,8 +123,9 @@ public class PostgresDataBase implements DataBase {
 		catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Unable to perform sql operation", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, handleSQLException(e.getSQLState()));
+			throw handleSQLException(e);
 		}
+		
 
 		
 		try {
@@ -121,10 +164,13 @@ public class PostgresDataBase implements DataBase {
 		try {
 			pst = StatementFactory.createPreparedStatement(con, qd);
 		} 
+		catch(IllegalArgumentException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, e.getMessage());
+		}
 		catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Error during preparing statement", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
+			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to process the request");
 		}
 
 		ResultSet rs;
@@ -134,7 +180,7 @@ public class PostgresDataBase implements DataBase {
 		catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Unable to perform sql operation", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, handleSQLException(e.getSQLState()));
+			throw handleSQLException(e);
 		}
 		
 		Map<String, Map<String, Object>> map = null;
@@ -145,7 +191,7 @@ public class PostgresDataBase implements DataBase {
 		catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Error while processing result set", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
+			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to process the request");
 		}
 		
 		try {
@@ -187,10 +233,14 @@ public class PostgresDataBase implements DataBase {
 		PreparedStatement pst;
 		try {
 			pst = StatementFactory.createPreparedStatement(con, qd);
-		} catch (SQLException e) {
+		}
+		catch(IllegalArgumentException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, e.getMessage());
+		}
+		catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Error during preparing statement", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
+			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Failed to process the request");
 		}
 		
 		ResultSet rs;
@@ -199,7 +249,7 @@ public class PostgresDataBase implements DataBase {
 		} catch (SQLException e) {
 			e.printStackTrace();
 			ApplicationLogger.log(Level.SEVERE, "Unable to perform sql operation", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, handleSQLException(e.getSQLState()));
+			throw handleSQLException(e);
 		}
 		
 		List<Map<String, Map<String, Object>>> mapList;

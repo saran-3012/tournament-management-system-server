@@ -56,8 +56,7 @@ public class MapModelParser {
 			try {
 				Accessor.setValue(obj, field.getType().getSimpleName(), fieldName, fieldValue);
 			} 
-			catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
+			catch (Exception e) {
 				e.printStackTrace();
 				ApplicationLogger.log(Level.WARNING, "Unable to invoke function with reflection", e);
 				throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");

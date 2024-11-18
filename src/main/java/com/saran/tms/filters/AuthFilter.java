@@ -85,17 +85,6 @@ public class AuthFilter extends HttpFilter implements Filter {
 			return;
 		}
 		
-		for(final String headerName : new String[]{"user-agent", "sec-ch-ua", "sec-ch-ua-platform"}) {
-			if(httpRequest.getHeader(headerName) == null && session.getAttribute(headerName) == null) {
-				continue;
-			}
-			if(httpRequest.getHeader(headerName) == null || session.getAttribute(headerName) == null || !httpRequest.getHeader(headerName).equals((String) session.getAttribute(headerName))) {
-				
-				returnErrorResponse(response, StatusCodes.UNAUTHORIZED, "User is not authorized");
-				return;
-			}
-		}
-		
 		// Check organization status ( Increases latency) 
 		
 		Object organizationId = session.getAttribute("organizationId");

@@ -1,22 +1,19 @@
 package com.saran.tms.adapters;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
 
 import com.saran.tms.config.DataBaseConfig;
 import com.saran.tms.config.TableConfig;
-import com.saran.tms.enums.StatusCodes;
-import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.models.Model;
 import com.saran.tms.utils.Accessor;
 
 public class ModelMapParser {
 
-	public static Map<String, Object> convertToMap(Model model) throws ResponseException {
+	public static Map<String, Object> convertToMap(Model model) throws IllegalArgumentException {
 		
 		Class<?> objectClass = model.getClass();
 		
@@ -37,11 +34,10 @@ public class ModelMapParser {
 			try {
 				fieldValue = Accessor.getValue(model, fieldName);
 			} 
-			catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
+			catch (Exception e) {
 				e.printStackTrace();
 				ApplicationLogger.log(Level.WARNING, "Unable to invoke function with reflection", e);
-				throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
+				throw new IllegalArgumentException("Failed to get " + fieldName + " value from " + objectClass.getSimpleName());
 			}
 			
 			if(fieldValue == null) {

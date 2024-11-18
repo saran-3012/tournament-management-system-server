@@ -4,11 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.logging.Level;
 
-import com.saran.tms.enums.StatusCodes;
-import com.saran.tms.exceptions.ResponseException;
-import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.pojo.ConditionEntry;
 import com.saran.tms.pojo.JoinConditionEntry;
 import com.saran.tms.pojo.JoinEntry;
@@ -41,14 +37,14 @@ public class StatementFactory {
 	private static PreparedStatement prepareInsertStatement(PreparedStatement pst, List<List<Object>> fieldValues) throws SQLException, IllegalArgumentException {
 		
 		if(fieldValues == null || fieldValues.isEmpty()) {
-			throw new IllegalArgumentException("No values provided");
+			throw new IllegalArgumentException("No values are provided for insertion");
 		}
 		
 		int parameterIndex = 1;
 		
 		for(List<Object> fieldRow : fieldValues) {
 			if(fieldRow == null) {
-				throw new IllegalArgumentException("No field row values provided");
+				throw new IllegalArgumentException("No values are provided for insertion");
 			}
 			for(Object fieldValue : fieldRow) {
 				setObject(pst, parameterIndex++, fieldValue);
@@ -88,18 +84,18 @@ public class StatementFactory {
 		if(offset != null) {
 			setObject(pst, parameterIndex++, offset);
 		}
-		
+	
 		return pst;
 	}
 	
-	private static PreparedStatement prepareUpdateStatement(PreparedStatement pst, List<List<Object>> fieldValues, List<TableConditionEntry> tableConditionEntries) throws SQLException {
+	private static PreparedStatement prepareUpdateStatement(PreparedStatement pst, List<List<Object>> fieldValues, List<TableConditionEntry> tableConditionEntries) throws SQLException, IllegalArgumentException {
 		
 		if(fieldValues == null || fieldValues.isEmpty()) {
-			throw new IllegalArgumentException("No values provided");
+			throw new IllegalArgumentException("No values provided for updation");
 		}
 		
 		if(tableConditionEntries == null || tableConditionEntries.isEmpty()) {
-			throw new IllegalArgumentException("No filter conditions provided");
+			throw new IllegalArgumentException("No filter conditions are provided");
 		}
 		
 		int parameterIndex = 1;
@@ -111,7 +107,10 @@ public class StatementFactory {
 
 		for(TableConditionEntry tableConditionEntry : tableConditionEntries) {
 			for(ConditionEntry conditionEntry : tableConditionEntry.getColumnContitions()) {
-				setObject(pst, parameterIndex++, conditionEntry.getValue());
+				Object value = conditionEntry.getValue();
+				if(value != null) {	
+					setObject(pst, parameterIndex++, value);
+				}
 			}
 		}
 		
@@ -119,35 +118,30 @@ public class StatementFactory {
 		
 	}
 	
-	private static PreparedStatement prepareDeleteStatement(PreparedStatement pst, List<TableConditionEntry> tableConditionEntries) throws SQLException {
+	private static PreparedStatement prepareDeleteStatement(PreparedStatement pst, List<TableConditionEntry> tableConditionEntries) throws SQLException, IllegalArgumentException {
 		if(tableConditionEntries == null || tableConditionEntries.isEmpty()) {
-			throw new IllegalArgumentException("No filter conditions provided");
+			throw new IllegalArgumentException("No filter conditions are provided");
 		}
 		
 		int parameterIndex = 1;
 		
 		for(TableConditionEntry tableConditionEntry : tableConditionEntries) {
 			for(ConditionEntry conditionEntry : tableConditionEntry.getColumnContitions()) {
-				setObject(pst, parameterIndex++, conditionEntry.getValue());
+				Object value = conditionEntry.getValue();
+				if(value != null) {	
+					setObject(pst, parameterIndex++, value);
+				}
 			}
 		}
 		
 		return pst;
 	}
 	
-	protected static PreparedStatement createPreparedStatement(Connection con, QueryData query) throws SQLException, ResponseException {
+	protected static PreparedStatement createPreparedStatement(Connection con, QueryData query) throws SQLException, IllegalArgumentException {
 		
 		String sqlQuery = QueryFactory.buildQuery(query);
 		
-		PreparedStatement pst = null;
-		try {
-			pst = con.prepareStatement(sqlQuery);
-		} catch (SQLException e) {
-			e.printStackTrace();
-			ApplicationLogger.log(Level.SEVERE, "Couldn't get the connection", e);
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Connection failed during operation");
-			
-		}
+		PreparedStatement pst = con.prepareStatement(sqlQuery);
 		
 		switch(query.getOperation()) {
 			case CREATE:
@@ -159,7 +153,7 @@ public class StatementFactory {
 			case DELETE:
 				return prepareDeleteStatement(pst, query.getConditionEntries());
 			default:
-				throw new ResponseException(StatusCodes.UNPROCESSABLE_CONTENT, "Undefined operation!");
+				throw new IllegalArgumentException("Invalid database operation");
 		}
 		
 	}

@@ -12,6 +12,7 @@ import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
+import com.saran.tms.models.AggregateModel;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.UserModel;
 import com.saran.tms.routers.Params;
@@ -73,54 +74,26 @@ public class UserController implements Controller{
 		return new ResponseData(StatusCodes.CREATED, jsonData);
 		
 	}
-	
-	@Route(path="/users/:user_id", method="GET")
-	public ResponseData findUser(RequestData request) throws ResponseException {
-		Params params = request.getParams();
-		
-		UserModel user = UserService.findUserById(params);
-		user.setPassword(null);
-		
-		JSONObject userData = ModelJsonParser.parse(user);
-		
-		JSONObject jsonData = new JSONObject();
-		jsonData.put("data", userData);
-		jsonData.put("message", "User found");
-		
-		return new ResponseData(StatusCodes.OK, jsonData);
-		
-	}
-	
-	@Route(path="/users", method="GET")
-	public ResponseData findUsers(RequestData request) throws ResponseException {
-		Params params = request.getParams();
-		QueryParams queryParams = request.getQueryParams();
-		
-		List<Model> users = UserService.findUsers(params, queryParams);
-
-		JSONArray usersData = new JSONArray();
-		
-		for(Model user : users) {
-			UserModel userModel = (UserModel) user;
-			userModel.setPassword(null);
-			JSONObject userData = ModelJsonParser.parse(userModel);
-			usersData.put(userData);
-		}
-		
-		JSONObject jsonData = new JSONObject();
-		jsonData.put("data", usersData);
-		jsonData.put("message", "Users found");
-		
-		return new ResponseData(StatusCodes.OK, jsonData);
-	}
 
 	
-	@Route(path="/orgs/:org_id/users", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
+	@Route(path="/orgs/:org_id/users", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findOrganizationUsers(RequestData request) throws ResponseException {
 		Params params = request.getParams();
 		QueryParams queryParams = request.getQueryParams();
 		
 		List<Model> users = UserService.findUsers(params, queryParams);
+		
+		JSONObject dataObject = new JSONObject();
+		
+		Boolean includeUsersCount = queryParams.getBoolean("include_userscount");
+		if(includeUsersCount != null && includeUsersCount) {
+			Long usersCount = 0L;
+			if(!users.isEmpty()) {
+				AggregateModel aggregateModel = (AggregateModel) users.remove(0);
+				usersCount = aggregateModel.getCount();
+			}
+			dataObject.put("usersCount", usersCount);
+		}
 
 		JSONArray usersData = new JSONArray();
 		
@@ -131,8 +104,10 @@ public class UserController implements Controller{
 			usersData.put(userData);
 		}
 		
+		dataObject.put("users", usersData);
+		
 		JSONObject jsonData = new JSONObject();
-		jsonData.put("data", usersData);
+		jsonData.put("data", dataObject);
 		jsonData.put("message", "Users found");
 		
 		return new ResponseData(StatusCodes.OK, jsonData);
@@ -142,7 +117,24 @@ public class UserController implements Controller{
 	public ResponseData findOrganizationUser(RequestData request) throws ResponseException {
 		
 		Params params = request.getParams();
- 
+		
+		switch(request.getUserRole()) {
+			case APP_ADMIN:
+				break;
+			case ORGANIZATION_ADMIN:
+				if((long) request.getOrganizationId() != (long) params.getLong("org_id")) {
+					throw new ResponseException(StatusCodes.FORBIDDEN, "Not allowed to access other org data");
+				}
+				break;
+			case ORGANIZATION_MEMBER:
+				if((long) request.getUserId() != (long) params.getLong("user_id")) {
+					throw new ResponseException(StatusCodes.FORBIDDEN, "Not allowed to access other user data");
+				}
+				break;
+			default:
+				throw new ResponseException(StatusCodes.FORBIDDEN, "Access denied");
+				
+		}
 		UserModel user = UserService.findUserById(params);
 	
 		user.setPassword(null);

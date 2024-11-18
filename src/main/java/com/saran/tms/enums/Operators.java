@@ -14,11 +14,11 @@ public enum Operators {
 	GREATER_THAN(">"),
 	LESS_THAN_OR_EQUAL("<="),
 	GREATER_THAN_OR_EQUAL(">="),
+	OPEN_BRACKET("("),
+	CLOSED_BRACKET(")"),
 	IN("IN"),
 	BETWEEN("BETWEEN"),
-	EXISTS("EXISTS"),
-	OPEN_BRACKET("("),
-	CLOSED_BRACKET(")");
+	EXISTS("EXISTS");
 	
 	private String operator;
 	

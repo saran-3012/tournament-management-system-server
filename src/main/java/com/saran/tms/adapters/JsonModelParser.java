@@ -30,7 +30,6 @@ public class JsonModelParser {
 		} 
 		catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException
 				| NoSuchMethodException | SecurityException e) {
-			e.printStackTrace();
 			ApplicationLogger.log(Level.WARNING, "Unable to create an instance with reflection", e);
 			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
 		}
@@ -50,9 +49,7 @@ public class JsonModelParser {
 			try {
 				Accessor.setValue(model, field.getType().getSimpleName(), fieldName, fieldValue);
 			} 
-			catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
-				e.printStackTrace();
+			catch (Exception e) {
 				ApplicationLogger.log(Level.WARNING, "Unable to invoke function with reflection", e);
 				throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
 			}

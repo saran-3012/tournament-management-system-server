@@ -99,8 +99,12 @@ input:-webkit-autofill:active {
 
 .flex {
   display: flex; }
-  .flex.column {
+  .flex.fd-column {
     flex-direction: column; }
+  .flex.ai-center {
+    align-items: center; }
+  .flex.jc-center {
+    justify-content: center; }
 
 .bg-white {
   background-color: #ffffff; }
@@ -139,11 +143,13 @@ input:-webkit-autofill:active {
   border: 1px solid #f0483e; }
 
 .br-grey {
-  border: 1px solid #808080;
-  border-color: #808080; }
+  border: 1px solid #808080; }
 
 .br-light-grey {
   border: 1px solid #e0e0e0; }
+
+.br-pale-white {
+  border: 1px solid #f6f6f6; }
 
 .br-green {
   border: 1px solid #13ad6b; }
@@ -175,8 +181,14 @@ input:-webkit-autofill:active {
 .ft-dark-grey {
   color: #383838; }
 
+.ft-light-grey {
+  color: #e0e0e0; }
+
 .ft-green {
   color: #13ad6b; }
+
+.ft-pale-white {
+  color: #f6f6f6; }
 
 .ft-red {
   color: #f0483e; }
@@ -192,6 +204,9 @@ input:-webkit-autofill:active {
 
 .txt-wrap {
   text-wrap: wrap; }
+
+.txt-center {
+  text-align: center; }
 
 .ft-xs {
   font-size: 0.75rem; }
@@ -219,6 +234,18 @@ input:-webkit-autofill:active {
 
 .ft-5xl {
   font-size: 2rem; }
+
+.ft-6xl {
+  font-size: 2.5rem; }
+
+.ft-7xl {
+  font-size: 3rem; }
+
+.ft-8xl {
+  font-size: 3.75rem; }
+
+.ft-9xl {
+  font-size: 4.5rem; }
 
 .wt-300 {
   font-weight: 300; }
@@ -348,7 +375,7 @@ input:-webkit-autofill:active {
   justify-content: flex-start;
   flex-direction: column;
   gap: 1rem;
-  padding: 0; }
+  padding: 0 0 4rem; }
 
 .organization-card-wrapper {
   display: flex;
@@ -385,6 +412,14 @@ input:-webkit-autofill:active {
   gap: 0.75rem;
   width: 70%; }
 
+.org-details-header-box {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 1rem;
+  width: 100%; }
+  .org-details-header-box .button {
+    width: fit-content; }
+
 .org-admin-details-box {
   display: grid;
   align-content: space-between;
@@ -418,11 +453,10 @@ input:-webkit-autofill:active {
 
 .tournament-card-wrapper {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
   gap: 2rem;
   padding: 2rem 1rem;
-  width: 100%;
-  flex-wrap: wrap; }
+  width: 100%; }
 
 .tournament {
   padding: 0; }
@@ -448,9 +482,9 @@ input:-webkit-autofill:active {
 
 .tournament-poster-overlay {
   display: flex;
-  align-items: flex-end;
-  justify-content: flex-start;
-  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-direction: column;
   position: absolute;
   top: 0;
   left: 0;
@@ -458,6 +492,8 @@ input:-webkit-autofill:active {
   height: 100%;
   padding: 3rem 5rem;
   background-image: linear-gradient(180deg, #00000060, #00000075); }
+  .tournament-poster-overlay .button:hover.br-light-grey.bg-transparent {
+    background-color: #505050bf; }
 
 .tournament-poster-header {
   font-weight: 500;
@@ -475,7 +511,7 @@ input:-webkit-autofill:active {
 
 .tournament-detail-wrapper {
   display: flex;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: space-between;
   flex-direction: row;
   flex-wrap: wrap;
@@ -485,7 +521,7 @@ input:-webkit-autofill:active {
 .tournament-detail-box {
   display: flex;
   align-items: flex-start;
-  justify-content: flex-start;
+  justify-content: space-between;
   flex-direction: column;
   gap: 1rem;
   padding: 2rem;
@@ -627,8 +663,7 @@ input:-webkit-autofill:active {
 .edit-tournament {
   position: fixed;
   top: 4rem;
-  left: 0;
-  background-color: #ffffff; }
+  left: 0; }
 
 .tournament-form-wrapper {
   display: flex;
@@ -680,6 +715,12 @@ input:-webkit-autofill:active {
   background-color: #f6f6f6;
   padding: 0;
   position: relative; }
+  .profile .back-btn {
+    position: absolute;
+    top: 3rem;
+    left: 5rem;
+    z-index: 1;
+    background-color: rgba(30, 30, 30, 0.3); }
 
 .profile-bg-image-box {
   position: absolute;
@@ -696,11 +737,10 @@ input:-webkit-autofill:active {
 
 .profile-container {
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  flex-direction: row;
+  align-items: stretch;
+  justify-content: flex-start;
+  flex-direction: column;
   z-index: 1;
-  flex-wrap: wrap;
   width: 100%;
   padding: 6rem 8rem 4rem;
   gap: 2rem; }
@@ -715,22 +755,41 @@ input:-webkit-autofill:active {
 
 .profile-details-container {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-start;
   flex-direction: column;
   flex-grow: 4;
   gap: 2rem; }
 
 .profile-details-box {
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  flex-direction: column;
-  padding: 1rem;
-  gap: 0.5rem;
   border-radius: 0.5rem;
   background-color: #ffffff;
-  width: 100%; }
+  width: 100%;
+  max-width: 50rem;
+  padding: 1rem 1.5rem 2rem; }
+  .profile-details-box tr th {
+    font-weight: 400;
+    text-align: left;
+    text-wrap: nowrap;
+    vertical-align: top;
+    color: #808080;
+    padding: 1.25rem 0.75rem 0.25rem 0;
+    border-bottom: 1px solid #e0e0e0; }
+    .profile-details-box tr th:has(div strong) {
+      border-bottom: none; }
+    .profile-details-box tr th div {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      flex-direction: row;
+      gap: 1rem; }
+  .profile-details-box tr td {
+    color: #1e1e1e;
+    vertical-align: top;
+    width: 100%;
+    text-wrap: wrap;
+    padding: 1.25rem 0 0.25rem 0.75rem;
+    border-bottom: 1px solid #e0e0e0; }
 
 .dashboard {
   display: flex;
@@ -740,15 +799,38 @@ input:-webkit-autofill:active {
   gap: 4rem;
   padding: 4rem; }
 
-.dashboard-register-tournaments {
+.dashboard-tournaments-box {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   flex-direction: column;
   width: 100%;
   gap: 1rem; }
+  .dashboard-tournaments-box .dashboard-tournaments-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%; }
+    .dashboard-tournaments-box .dashboard-tournaments-header a {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      flex-direction: row;
+      width: fit-content;
+      text-wrap: nowrap;
+      text-decoration: none;
+      gap: 0.5rem;
+      color: #06b1ff; }
+      .dashboard-tournaments-box .dashboard-tournaments-header a svg {
+        flex-shrink: 0;
+        width: 1.25rem;
+        height: 1.25rem; }
+      .dashboard-tournaments-box .dashboard-tournaments-header a:hover {
+        color: #0878c5; }
 
-.dashboard-upcoming-schedules {
+.dashboard-schedules-box {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
@@ -756,20 +838,43 @@ input:-webkit-autofill:active {
   width: 100%;
   gap: 2rem; }
 
-.dashboard-upcoming-schedules-wrapper {
+.dashboard-schedules-wrapper {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   flex-direction: column;
   width: 100%; }
 
-.dashboard-unapproved-organizations, .dashboard-approved-organizations, .dashboard-banned-organizations {
+.dashboard-organizations-box {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   flex-direction: column;
   width: 100%;
   gap: 2rem; }
+  .dashboard-organizations-box .dashboard-organizations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-direction: row;
+    gap: 1rem;
+    width: 100%; }
+    .dashboard-organizations-box .dashboard-organizations-header a {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      flex-direction: row;
+      width: fit-content;
+      text-wrap: nowrap;
+      text-decoration: none;
+      gap: 0.5rem;
+      color: #06b1ff; }
+      .dashboard-organizations-box .dashboard-organizations-header a svg {
+        flex-shrink: 0;
+        width: 1.25rem;
+        height: 1.25rem; }
+      .dashboard-organizations-box .dashboard-organizations-header a:hover {
+        color: #0878c5; }
 
 .dashboard-organization-card-wrapper {
   display: flex;
@@ -955,6 +1060,13 @@ input:-webkit-autofill:active {
   background-position: center;
   background-repeat: no-repeat; }
 
+.overlay-form {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  background-color: rgba(0, 0, 0, 0.3); }
+
 .form-model {
   display: flex;
   align-items: center;
@@ -1000,35 +1112,44 @@ input:-webkit-autofill:active {
   justify-content: center;
   flex-direction: column;
   width: 100%; }
-
-.input-box {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex-direction: row;
-  width: 100%;
-  position: relative;
-  border-width: 1.5px;
-  border-style: solid;
-  background-color: #f6f6f6;
-  padding: 0.75rem;
-  border-radius: 0.25rem; }
-  .input-box .input-label {
-    font-size: 0.875rem;
-    color: #808080;
-    position: absolute;
-    transition: all 250ms;
-    transform-origin: left; }
-  .input-box:has(input:focus) {
-    border-color: #06b1ff; }
-    .input-box:has(input:focus) .input-label {
-      text-shadow: 1px 1px #ffffff, 1px -1px #ffffff, -1px 1px #ffffff, -1px -1px #ffffff;
+  .input .input-box {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    width: 100%;
+    position: relative;
+    border-width: 1.5px;
+    border-style: solid;
+    background-color: #ffffff;
+    padding: 0.75rem;
+    border-radius: 0.25rem; }
+    .input .input-box .input-label {
+      font-size: 0.875rem;
+      color: #808080;
+      position: absolute;
+      transition: all 250ms;
+      transform-origin: left; }
+    .input .input-box:has(input:focus) {
+      border-color: #06b1ff; }
+      .input .input-box:has(input:focus) .input-label {
+        background-color: #ffffff;
+        transform: translateY(-110%) scale(0.9); }
+    .input .input-box:has(.input-field:not(:placeholder-shown)) .input-label {
+      background-color: #ffffff;
       transform: translateY(-110%) scale(0.9); }
-  .input-box:has(.input-field:not(:placeholder-shown)) .input-label {
-    text-shadow: 1px 1px #ffffff, 1px -1px #ffffff, -1px 1px #ffffff, -1px -1px #ffffff;
-    transform: translateY(-110%) scale(0.9); }
-  .input-box.br-red {
-    border-color: #f0483e !important; }
+    .input .input-box.bg-white {
+      background-color: #ffffff; }
+      .input .input-box.bg-white .input-label {
+        background-color: #ffffff; }
+    .input .input-box.br-red {
+      border-color: #f0483e !important; }
+  .input.bg-pale-white .input-box {
+    background-color: #f6f6f6; }
+  .input.pd-sm .input-box {
+    padding: 0.5rem; }
+  .input.pd-xs .input-box {
+    padding: 0.375rem 0.25rem; }
 
 option:disabled {
   color: #808080; }
@@ -1317,7 +1438,35 @@ option:disabled {
   align-items: center;
   justify-content: center;
   flex-direction: row;
-  width: 100%; }
+  width: 100%;
+  position: relative; }
+
+.user-card-menu-wrapper {
+  position: absolute;
+  top: 0;
+  right: -0.5rem; }
+
+.user-card-menu-box {
+  position: relative; }
+
+.user-card-menu {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  flex-direction: column;
+  position: absolute;
+  right: 2rem;
+  top: 2rem;
+  width: 8rem;
+  gap: 0.1rem;
+  overflow: hidden;
+  border-radius: 0.125rem;
+  box-shadow: 1px 1px 4px rgba(0, 0, 0, 0.2);
+  background-color: #f6f6f6; }
+  .user-card-menu a {
+    width: 100%; }
+  .user-card-menu .button:hover.no-border.bg-white {
+    background-color: #f6f6f6; }
 
 .user-card-profile-img {
   background-image: url("images/profile-place-holder.svg");
@@ -1394,6 +1543,9 @@ option:disabled {
     justify-content: flex-start;
     flex-direction: row;
     gap: 1rem; }
+    .tournament-navbar .tournament-navbar-box button:disabled.br-light-grey.bg-white.ft-grey {
+      background-color: #f6f6f6;
+      color: #e0e0e0; }
 
 .organization-user-navbar {
   display: flex;
@@ -1410,6 +1562,15 @@ option:disabled {
   z-index: 10;
   top: 4rem;
   left: 0; }
+  .organization-user-navbar .organization-user-navbar-box {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    gap: 1rem; }
+    .organization-user-navbar .organization-user-navbar-box button:disabled.br-light-grey.bg-white.ft-grey {
+      background-color: #f6f6f6;
+      color: #e0e0e0; }
 
 .organization-navbar {
   display: flex;
@@ -1424,12 +1585,19 @@ option:disabled {
   z-index: 10;
   top: 4rem;
   left: 0; }
-
-.button:hover.br-green.bg-green {
-  background-color: #ffffff; }
-
-.button:hover.br-green.ft-white {
-  color: #13ad6b; }
+  .organization-navbar .organization-navbar-box {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    gap: 1rem; }
+    .organization-navbar .organization-navbar-box button:disabled.br-light-grey.bg-white.ft-grey {
+      background-color: #f6f6f6;
+      color: #e0e0e0; }
+  .organization-navbar .button:hover.br-green.bg-green {
+    background-color: #ffffff; }
+  .organization-navbar .button:hover.br-green.ft-white {
+    color: #13ad6b; }
 
 .tournament-participation-form-container {
   display: flex;
@@ -1824,6 +1992,12 @@ option:disabled {
   flex-direction: column;
   gap: 1rem;
   width: 100%; }
+  .organization-user-form-innerbox .ft-sm.ft-grey {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    width: 100%; }
 
 .organization-user-form-buttons {
   display: flex;
@@ -1943,6 +2117,18 @@ option:disabled {
     .team-card.my-participation .team-card-info-box .team-card-buttons .button:hover.br-transparent.bg-transparent.ft-grey {
       color: #e0e0e0; }
 
+.team-card.winning-contestant {
+  border: 1px solid #13ad6b;
+  position: relative; }
+  .team-card.winning-contestant .team-card-info-box {
+    background-color: #13ad6b; }
+    .team-card.winning-contestant .team-card-info-box .team-card-info .ft-night-black {
+      color: white; }
+    .team-card.winning-contestant .team-card-info-box .team-card-buttons .button.br-transparent.bg-transparent.ft-grey {
+      color: #ffffff; }
+    .team-card.winning-contestant .team-card-info-box .team-card-buttons .button:hover.br-transparent.bg-transparent.ft-grey {
+      color: #e0e0e0; }
+
 .participant-card {
   display: flex;
   align-items: center;
@@ -1966,6 +2152,20 @@ option:disabled {
       background-color: #ffffff; }
     .participant-card.my-participation .participant-card-buttons .br-green.ft-white {
       color: #13ad6b; }
+  .participant-card.winning-contestant {
+    border: 1px solid #13ad6b;
+    background-color: #13ad6b;
+    position: relative; }
+    .participant-card.winning-contestant .participant-card-info .ft-night-black {
+      color: white; }
+    .participant-card.winning-contestant .participant-card-buttons .br-red.bg-red {
+      background-color: #ffffff; }
+    .participant-card.winning-contestant .participant-card-buttons .br-red.ft-white {
+      color: #f0483e; }
+    .participant-card.winning-contestant .participant-card-buttons .br-green.bg-green {
+      background-color: #ffffff; }
+    .participant-card.winning-contestant .participant-card-buttons .br-green.ft-white {
+      color: #06b1ff; }
 
 .pincard {
   position: absolute;
@@ -2005,6 +2205,26 @@ option:disabled {
   flex-direction: column;
   gap: 1rem; }
 
+.tournament-schedule-card-info-title {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-direction: row;
+  gap: 1rem; }
+  .tournament-schedule-card-info-title .tournament-schedule-status-box {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    flex-direction: row;
+    border: 1px solid #e0e0e0;
+    border-radius: 1rem;
+    gap: 0.5rem;
+    padding: 0 0.3rem; }
+    .tournament-schedule-card-info-title .tournament-schedule-status-box .tournament-schedule-status-indicator {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 100%; }
+
 .tournament-schedule-card-buttons {
   display: flex;
   align-items: flex-end;
@@ -2018,6 +2238,10 @@ option:disabled {
   justify-content: flex-start;
   flex-direction: row;
   gap: 1rem; }
+  .tournament-schedule-card-button-box .button:hover.br-transparent.bg-transparent.ft-blue {
+    border-color: #06b1ff; }
+  .tournament-schedule-card-button-box .button:hover.br-transparent.bg-transparent.ft-red {
+    border-color: #f0483e; }
 
 .event-contestansts-wrapper {
   display: flex;

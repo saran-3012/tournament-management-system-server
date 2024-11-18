@@ -3,11 +3,8 @@ package com.saran.tms.postgresql;
 import java.util.List;
 import java.util.Map;
 
-
 import com.saran.tms.enums.Functions;
-import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.TableNames;
-import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.pojo.GroupEntry;
 import com.saran.tms.pojo.JoinEntry;
 import com.saran.tms.pojo.OrderEntry;
@@ -17,14 +14,14 @@ import com.saran.tms.validators.EntityValidator;
 
 public class QueryFactory {
 
-	private static String buildInsertQuery(TableNames tableName, List<String> fieldNames, List<List<Object>> fieldValues, List<String> returnEntries) throws IllegalArgumentException, ResponseException {
+	private static String buildInsertQuery(TableNames tableName, List<String> fieldNames, List<List<Object>> fieldValues, List<String> returnEntries) throws IllegalArgumentException {
 		
 		if(fieldNames == null || fieldNames.isEmpty() || fieldValues == null || fieldValues.isEmpty()) {
 			throw new IllegalArgumentException("No fields are provided!");
 		}
 		
 		if(!EntityValidator.validateEntity(tableName, fieldNames)) {
-			throw new ResponseException(StatusCodes.UNPROCESSABLE_CONTENT, "Fields provided are not valid!");
+			throw new IllegalArgumentException("Provided fields are not valid!");
 		}
 
 		int n = fieldNames.size();
@@ -44,7 +41,7 @@ public class QueryFactory {
 		return qb.build();
 	}
 	
-	private static String buildSelectQuery(List<TableColumnEntry> tableColumnEntries, Map<GroupEntry, Functions> fieldFunctions, List<JoinEntry> joinEntries, List<TableConditionEntry> conditionEntries, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws IllegalArgumentException, ResponseException {
+	private static String buildSelectQuery(List<TableColumnEntry> tableColumnEntries, Map<GroupEntry, Functions> fieldFunctions, List<JoinEntry> joinEntries, List<TableConditionEntry> conditionEntries, List<GroupEntry> groupEntries, List<OrderEntry> orderEntries, Integer limit, Integer offset) throws IllegalArgumentException {
 		QueryBuilder qb = new QueryBuilder();
 
 		qb.select()
@@ -93,7 +90,7 @@ public class QueryFactory {
 		return qb.build();
 	}
 	
-	protected static String buildQuery(QueryData query) throws IllegalArgumentException, ResponseException {
+	protected static String buildQuery(QueryData query) throws IllegalArgumentException {
 		switch(query.getOperation()) {
 			case CREATE:
 				return buildInsertQuery(query.getTableColumnEntries().get(0).getTableName(), query.getTableColumnEntries().get(0).getColumnNames(), query.getFieldValues(), query.getReturnEntries());
@@ -104,7 +101,7 @@ public class QueryFactory {
 			case DELETE:
 				return buildDeleteQuery(query.getConditionEntries(), query.getReturnEntries());
 			default:
-				throw new ResponseException(StatusCodes.UNPROCESSABLE_CONTENT, "Undefined operation!");
+				throw new IllegalArgumentException("Invalid database operation");
 		}
 	}
 }

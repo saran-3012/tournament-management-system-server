@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.saran.tms.enums.Operators;
 import com.saran.tms.enums.TableNames;
+import com.saran.tms.exceptions.DataBaseException;
 
 public class ConditionEntry implements QueryEntry {
 	
@@ -14,8 +15,9 @@ public class ConditionEntry implements QueryEntry {
 	protected String columnName;
 	protected List<Operators> relationalOperators; 
 	protected Object columnValue;
-	protected List<ConditionEntry> nestedConditions;
+	protected ConditionEntry[] nestedConditions;
 	protected boolean negate;
+	protected boolean optional;
 	
 	protected short type;
 	
@@ -37,38 +39,12 @@ public class ConditionEntry implements QueryEntry {
 		this.columnValue = columnValue;
 	}
 	
-	public ConditionEntry(String columnName, Operators relationalOperator, Object columnValue, boolean negate) {
-		this.type = 0;
-		
-		this.columnName = columnName;
-		this.relationalOperators = Arrays.asList(relationalOperator);
-		this.columnValue = columnValue;
-		this.negate = negate;
-	}
-	
-	public ConditionEntry(String columnName, List<Operators> relationalOperators, Object columnValue, boolean negate) {
-		this.type = 0;
-		
-		this.columnName = columnName;
-		this.relationalOperators = relationalOperators;
-		this.columnValue = columnValue;
-		this.negate = negate;
-	}
-	
 
 	public ConditionEntry(String columnName, List<Operators> relationalOperators) {
 		this.type = 1;
 		
 		this.columnName = columnName;
 		this.relationalOperators = relationalOperators;
-	}
-	
-	public ConditionEntry(String columnName, List<Operators> relationalOperators, boolean negate) {
-		this.type = 1;
-		
-		this.columnName = columnName;
-		this.relationalOperators = relationalOperators;
-		this.negate = negate;
 	}
 	
 	
@@ -88,28 +64,7 @@ public class ConditionEntry implements QueryEntry {
 		this.columnName = columnName;
 		this.relationalOperators = relationalOperators;
 		this.columnValue = columnValue;
-	}
-	
-	public ConditionEntry(TableNames tableName, String columnName, Operators relationalOperator, Object columnValue, boolean negate) {
-		this.type = 2;
-		
-		this.tableName = tableName;
-		this.columnName = columnName;
-		this.relationalOperators = Arrays.asList(relationalOperator);
-		this.columnValue = columnValue;
-		this.negate = negate;
-	}
-	
-	public ConditionEntry(TableNames tableName, String columnName, List<Operators> relationalOperators, Object columnValue, boolean negate) {
-		this.type = 2;
-		
-		this.tableName = tableName;
-		this.columnName = columnName;
-		this.relationalOperators = relationalOperators;
-		this.columnValue = columnValue;
-		this.negate = negate;
-	}
-	
+	}	
 	
 	public ConditionEntry(TableNames tableName, String columnName, List<Operators> relationalOperators) {
 		this.type = 3;
@@ -119,29 +74,38 @@ public class ConditionEntry implements QueryEntry {
 		this.relationalOperators = relationalOperators;
 	}
 	
-	public ConditionEntry(TableNames tableName, String columnName, List<Operators> relationalOperators, boolean negate) {
-		this.type = 3;
-		
-		this.tableName = tableName;
-		this.columnName = columnName;
-		this.relationalOperators = relationalOperators;
-		this.negate = negate;
-	}
 	
-	
-	public ConditionEntry(Operators logicalOperator, List<ConditionEntry> nestedConditions) {
+	public ConditionEntry(Operators logicalOperator, ConditionEntry ...nestedConditions) throws DataBaseException {
 		this.type = 4;
-		
+		if(logicalOperator != Operators.AND && logicalOperator != Operators.OR) {
+			throw new DataBaseException("Invalid logical operator");
+		}
 		this.logicalOperator = logicalOperator;
 		this.nestedConditions = nestedConditions;
 	}
 	
-	public ConditionEntry(Operators logicalOperator, List<ConditionEntry> nestedConditions, boolean negate) {
-		this.type = 4;
-		
-		this.logicalOperator = logicalOperator;
-		this.nestedConditions = nestedConditions;
+	public ConditionEntry(Operators logicalOperator, List<ConditionEntry> nestedConditions) throws DataBaseException {
+		this(logicalOperator, (ConditionEntry[]) nestedConditions.toArray());
+	}
+	
+	public ConditionEntry negate() {
+		this.negate = true;
+		return this;
+	}
+	
+	public ConditionEntry negate(boolean negate) {
 		this.negate = negate;
+		return this;
+	}
+	
+	public ConditionEntry optional() {
+		this.optional = true;
+		return this;
+	}
+	
+	public ConditionEntry optional(boolean optional) {
+		this.optional = optional;
+		return this;
 	}
 	
 	protected String joinOperators() {
@@ -156,25 +120,43 @@ public class ConditionEntry implements QueryEntry {
 		return operatorString.toString();
 	}
 	
-	protected String joinConditions() {
-		if(nestedConditions == null || nestedConditions.isEmpty()) {
+	protected String joinConditions() throws DataBaseException {
+		if(nestedConditions == null || nestedConditions.length == 0) {
 			return "";
 		}
-		int n = nestedConditions.size();
-		StringBuilder conditionString = new StringBuilder(nestedConditions.get(0).toQueryString());
-		conditionValues.addAll(nestedConditions.get(0).getConditionValues());
-		for(int i=1; i<n; i++) {
-			conditionString.append(logicalOperator.getOperator()).append(nestedConditions.get(i).toQueryString());
-			conditionValues.addAll(nestedConditions.get(i).getConditionValues());
+		
+		StringBuilder conditionString = new StringBuilder();
+		
+		boolean isFirstValue = true;
+		for(final ConditionEntry nestedCondition : nestedConditions) {
+			String nestedConditionString = nestedCondition.toQueryString();
+			if(nestedConditionString.length() > 0) {
+				if(!isFirstValue) {
+					conditionString.append(logicalOperator.getOperator());
+				}
+				else {
+					isFirstValue = false;
+				}
+				conditionString.append(nestedConditionString);
+				conditionValues.addAll(nestedCondition.getConditionValues());
+			}
 		}
 		return conditionString.toString();
 	}
 	
-	public String toQueryString() {
+	public String toQueryString() throws DataBaseException {
 		StringBuilder queryStringBuilder = new StringBuilder(negate? "NOT " : "");
 		conditionValues = new ArrayList<>();
 		switch(type) {
 			case 0:
+				if(columnName == null || relationalOperators == null || relationalOperators.isEmpty() || columnValue == null) {
+					if(optional) {
+						return "";
+					}
+					else {
+						throw new DataBaseException("Syntax Error : Not valid condition");
+					}
+				}
 				queryStringBuilder.append(columnName)
 									 .append(joinOperators())
 									 .append('?')
@@ -183,12 +165,28 @@ public class ConditionEntry implements QueryEntry {
 				conditionValues.add(columnValue);
 				break;
 			case 1:
+				if(columnName == null || relationalOperators == null || relationalOperators.isEmpty()) {
+					if(optional) {
+						return "";
+					}
+					else {
+						throw new DataBaseException("Syntax Error : Not valid condition");
+					}
+				}
 				queryStringBuilder.append(columnName)
 									 .append(joinOperators())
 									 .append(' ');
 				
 				break; 
 			case 2:
+				if(tableName == null || columnName == null || relationalOperators == null || relationalOperators.isEmpty() || columnValue == null) {
+					if(optional) {
+						return "";
+					}
+					else {
+						throw new DataBaseException("Syntax Error : Not valid condition");
+					}
+				}
 				queryStringBuilder.append(tableName.getTableName())
 									 .append('.')
 									 .append(columnName)
@@ -200,12 +198,28 @@ public class ConditionEntry implements QueryEntry {
 				conditionValues.add(columnValue);
 				break;
 			case 3:
+				if(tableName == null || columnName == null || relationalOperators == null || relationalOperators.isEmpty()) {
+					if(optional) {
+						return "";
+					}
+					else {
+						throw new DataBaseException("Syntax Error : Not valid condition");
+					}
+				}
 				queryStringBuilder.append(tableName.getTableName())
 									 .append(columnName)
 									 .append(joinOperators())
 									 .append(' ');
 				break;
 			case 4:
+				if(nestedConditions == null || nestedConditions.length == 0) {
+					if(optional) {
+						return "";
+					}
+					else {
+						throw new DataBaseException("Syntax Error : Not valid condition");
+					}
+				}
 				queryStringBuilder.append('(')
 									 .append(' ')
 									 .append(joinConditions())

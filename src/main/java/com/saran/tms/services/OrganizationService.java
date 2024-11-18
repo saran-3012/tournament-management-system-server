@@ -2,20 +2,25 @@ package com.saran.tms.services;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.saran.tms.dao.Dao;
+import com.saran.tms.enums.Functions;
 import com.saran.tms.enums.JoinTypes;
 import com.saran.tms.enums.Operators;
+import com.saran.tms.enums.SortOrder;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.TableNames;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.OrganizationModel;
 import com.saran.tms.pojo.ConditionEntry;
+import com.saran.tms.pojo.GroupEntry;
 import com.saran.tms.pojo.JoinConditionEntry;
 import com.saran.tms.pojo.JoinEntry;
+import com.saran.tms.pojo.OrderEntry;
 import com.saran.tms.pojo.TableColumnEntry;
 import com.saran.tms.pojo.TableConditionEntry;
 import com.saran.tms.routers.Params;
@@ -76,7 +81,7 @@ public class OrganizationService {
 
 		Operators operator = null;
 
-		String orgName = queryParams.get("filter_orgname");
+		String orgName = queryParams.get("filter_organization");
 		if (orgName != null) {
 			conditions.add(new ConditionEntry(Arrays.asList(operator), "organization_name", Arrays.asList(Operators.ILIKE), '%' + orgName + '%'));
 			operator = Operators.AND;
@@ -103,6 +108,47 @@ public class OrganizationService {
 		catch(NumberFormatException e) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid organization status");
 		}
+		
+		List<OrderEntry> sortEntries = new ArrayList<>();
+		
+		String sortTimeCreated = queryParams.get("sort_timecreated");
+		if(sortTimeCreated != null) {
+			try {
+				SortOrder sortOrder = SortOrder.getSortOrder(sortTimeCreated);
+				sortEntries.add(new OrderEntry(TableNames.ORGANIZATIONS, "organization_created_at", sortOrder));
+			}
+			catch(IllegalArgumentException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
+			}
+			catch(NullPointerException e) {}
+		}
+
+		String sortOrganizationName = queryParams.get("sort_organizationname");
+		if(sortOrganizationName != null) {
+			try {
+				SortOrder sortOrder = SortOrder.getSortOrder(sortOrganizationName);
+				sortEntries.add(new OrderEntry(TableNames.ORGANIZATIONS, "organization_name", sortOrder));
+			}
+			catch(IllegalArgumentException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
+			}
+			catch(NullPointerException e) {}
+		}
+		
+		String sortStartedYear = queryParams.get("sort_startedyear");
+		if(sortStartedYear != null) {
+			try {
+				SortOrder sortOrder = SortOrder.getSortOrder(sortStartedYear);
+				sortEntries.add(new OrderEntry(TableNames.ORGANIZATIONS, "started_year", sortOrder));
+			}
+			catch(IllegalArgumentException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
+			}
+			catch(NullPointerException e) {}
+		}
+		
+		
+		
 
 		Integer limit;
 		Integer page;
@@ -148,7 +194,31 @@ public class OrganizationService {
 						Arrays.asList(
 								new TableConditionEntry(TableNames.ORGANIZATIONS, conditions)
 						),
+						sortEntries,
 						limit, offset);
+		
+		Boolean includeOrganizationsCount = queryParams.getBoolean("include_organizationscount");
+		if(includeOrganizationsCount != null && includeOrganizationsCount) {
+			Map<GroupEntry, Functions> fieldFunctions = new HashMap<>();
+			fieldFunctions.put(new GroupEntry(TableNames.ORGANIZATIONS, "*"), Functions.COUNT);
+			
+			List<List<Model>> userCountDetails = orgDao.findAllWithJoin(
+													Arrays.asList(
+															new TableColumnEntry(TableNames.ORGANIZATIONS, Arrays.asList("*"))
+													),
+													Arrays.asList(
+															new JoinEntry(TableNames.ORGANIZATIONS, TableNames.USERS, "organization_id", "organization_id", JoinTypes.LEFT_JOIN),
+															new JoinConditionEntry(Operators.AND ,TableNames.USERS, "role", Operators.GREATER_THAN_OR_EQUAL, (short) 1),
+															new JoinConditionEntry(Operators.AND ,TableNames.USERS, "role", Operators.LESS_THAN_OR_EQUAL, (short) 2)
+													),
+													Arrays.asList(
+															new TableConditionEntry(TableNames.ORGANIZATIONS, conditions)
+													),
+													fieldFunctions,
+													null, null);
+			
+			orgDetailsList.add(0, userCountDetails.get(0));
+		}
 
 		return orgDetailsList;
 	}

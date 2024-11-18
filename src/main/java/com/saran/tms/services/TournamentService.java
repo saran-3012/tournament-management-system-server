@@ -148,342 +148,10 @@ public class TournamentService {
 		
 		return tournamentDetails.get(0);
 	}
-	
-	private static List<List<Model>> findTournamentsWithUserFilter(Params params, QueryParams queryParams) throws ResponseException {
-		
-		Dao tournamentDao = new Dao(TournamentModel.class);
-		
-		List<ConditionEntry> teamMemberConditions = new ArrayList<>();
-		List<ConditionEntry> participantConditions = new ArrayList<>();
-		
-		Long userId;
-		try {
-			userId = queryParams.getLong("filter_userid");
-			if(userId == null) {
-				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "User id is not provided");
-			}
-		}
-		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
-		}
-		
-		teamMemberConditions.add(new ConditionEntry(null, "user_id", Arrays.asList(Operators.EQUAL), userId));
-		participantConditions.add(new ConditionEntry(Arrays.asList(Operators.OR), "user_id", Arrays.asList(Operators.EQUAL), userId));
-		
-		List<TableConditionEntry> tableConditionEntries = new ArrayList<>();
-		
-		if(!teamMemberConditions.isEmpty()) {
-			tableConditionEntries.add(new TableConditionEntry(TableNames.TEAM_MEMBERS, teamMemberConditions));
-		}
-		
-		if(!participantConditions.isEmpty()) {
-			tableConditionEntries.add(new TableConditionEntry(TableNames.TOURNAMENT_PARTICIPANTS, participantConditions));
-		}
-		
-		List<OrderEntry> sortEntries = new ArrayList<>();
-		
-		String sortCreatedAt = queryParams.get("sort_createdat");
-		if(sortCreatedAt != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortCreatedAt);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_created_at", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortRegistrationStart = queryParams.get("sort_registrationstart");
-		if(sortRegistrationStart != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortRegistrationStart);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "registration_start_date", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortRegistrationEnd = queryParams.get("sort_registrationend");
-		if(sortRegistrationEnd != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortRegistrationEnd);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "registration_end_date", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortTournamentDate = queryParams.get("sort_tournamentdate");
-		if(sortTournamentDate != null) {
-			try {
-				SortOrder sortOrder = null;				
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_date", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortTournamentName = queryParams.get("sort_tournamentname");
-		if(sortTournamentName != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortTournamentName);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_name", sortOrder));				
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortSportName = queryParams.get("sort_sportname");
-		if(sortSportName != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortSportName);			
-				sortEntries.add(new OrderEntry(TableNames.SPORTS, "sport_name", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-	
-		Integer limit;
-		Integer page;
-		
-		try {
-			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
-			if(limit < 0) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
-			}
-		}
-		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
-		}
-		
-		try {
-			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
-			if(page < 0) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
-			}
-		}
-		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
-		}
-		
-		Integer offset = limit * page;
-		
-		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
-		if(excludeLimit != null && excludeLimit) {
-			limit = null;
-			offset = null;
-		}
-		
-		List<List<Model>> tournamentDetailsList = tournamentDao.findAllWithJoin(
-				Arrays.asList(
-					new TableColumnEntry(TableNames.TOURNAMENTS, Arrays.asList("*")),
-					new TableColumnEntry(TableNames.SPORTS, Arrays.asList("*"))
-				),
-				Arrays.asList(
-					new JoinEntry(TableNames.TOURNAMENTS, TableNames.SPORTS, "sport_id", "sport_id", JoinTypes.JOIN),
-					new JoinEntry(TableNames.TOURNAMENTS, TableNames.TOURNAMENT_PARTICIPANTS, "tournament_id", "tournament_id", JoinTypes.LEFT_JOIN),
-					new JoinEntry(TableNames.TOURNAMENTS, TableNames.TOURNAMENT_TEAMS, "tournament_id", "tournament_id", JoinTypes.LEFT_JOIN),
-					new JoinEntry(TableNames.TOURNAMENT_TEAMS, TableNames.TEAM_MEMBERS, "team_id", "team_id", JoinTypes.JOIN)
-				),
-				tableConditionEntries,
-				sortEntries,
-				limit,
-				offset
-			);
-		
-		if(tournamentDetailsList == null || tournamentDetailsList.isEmpty()) {
-			return new ArrayList<>();
-		}
-		
-		if(tournamentDetailsList.get(0) == null || tournamentDetailsList.get(0).isEmpty()) {
-			return new ArrayList<>();
-		}
-		
-		return tournamentDetailsList;
-	}
-	
-	private static List<List<Model>> searchTournaments(Params params, QueryParams queryParams) throws ResponseException {
-		Dao tournamentDao = new Dao(TournamentModel.class);
 
-		
-		Long organizationId;
-		try {
-			organizationId = params.getLong("org_id");
-			if(organizationId == null) {
-				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Organization id is not provided");
-			}
-		}
-		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Organiation id is not valid");
-		}
-		
-		
-		String tournamentSearchValue = queryParams.get("filter_tournament");
-		
-		
-		List<OrderEntry> sortEntries = new ArrayList<>();
-		
-		String sortCreatedAt = queryParams.get("sort_createdat");
-		if(sortCreatedAt != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortCreatedAt);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_created_at", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortRegistrationStart = queryParams.get("sort_registrationstart");
-		if(sortRegistrationStart != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortRegistrationStart);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "registration_start_date", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortRegistrationEnd = queryParams.get("sort_registrationend");
-		if(sortRegistrationEnd != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortRegistrationEnd);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "registration_end_date", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortTournamentDate = queryParams.get("sort_tournamentdate");
-		if(sortTournamentDate != null) {
-			try {
-				SortOrder sortOrder = null;				
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_date", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortTournamentName = queryParams.get("sort_tournamentname");
-		if(sortTournamentName != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortTournamentName);
-				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_name", sortOrder));				
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		String sortSportName = queryParams.get("sort_sportname");
-		if(sortSportName != null) {
-			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortSportName);			
-				sortEntries.add(new OrderEntry(TableNames.SPORTS, "sport_name", sortOrder));
-			}
-			catch(IllegalArgumentException e) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
-			}
-			catch(NullPointerException e) {}
-		}
-		
-		Integer limit;
-		Integer page;
-		
-		try {
-			limit = (int) Utilities.nullFallback(queryParams.getInt("limit"), 20);
-			if(limit < 0) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Limit cannot be negative");
-			}
-		}
-		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid limit value");
-		}
-		
-		try {
-			page = (int) Utilities.nullFallback(queryParams.getInt("page"), 0);
-			if(page < 0) {
-				throw new ResponseException(StatusCodes.BAD_REQUEST, "Page cannot be negative");
-			}
-		}
-		catch(NumberFormatException e) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid page value");
-		}
-		
-		Integer offset = limit * page;
-		
-		Boolean excludeLimit = queryParams.getBoolean("exclude_limit");
-		if(excludeLimit != null && excludeLimit) {
-			limit = null;
-			offset = null;
-		}
-		
-		List<List<Model>> tournamentDetailsList = tournamentDao.findAllWithJoin(
-			Arrays.asList(
-				new TableColumnEntry(TableNames.TOURNAMENTS, Arrays.asList("*")),
-				new TableColumnEntry(TableNames.SPORTS, Arrays.asList("*"))
-			),
-			Arrays.asList(
-				new JoinEntry(TableNames.TOURNAMENTS, TableNames.SPORTS, "sport_id", "sport_id", JoinTypes.JOIN)
-			),
-			Arrays.asList(
-					new TableConditionEntry(
-						TableNames.TOURNAMENTS, 
-						Arrays.asList(
-							new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), organizationId),
-							// tournament conditions
-							
-							new ConditionEntry(Arrays.asList(Operators.AND, Operators.OPEN_BRACKET), "tournament_name", Arrays.asList(Operators.ILIKE), '%' + tournamentSearchValue + '%')
-						)
-					),
-					new TableConditionEntry(
-						TableNames.SPORTS,
-						Arrays.asList(
-							new ConditionEntry(Arrays.asList(Operators.OR), "sport_name", Arrays.asList(Operators.ILIKE), '%' + tournamentSearchValue + '%'),
-							new ConditionEntry(Arrays.asList(Operators.CLOSED_BRACKET), null, null, null) // Replace this for sport conditions
-						)
-					)
-					
-			),
-			sortEntries,
-			limit,
-			offset
-		);
-
-		return tournamentDetailsList;
-	}
 	
 	public static List<List<Model>> findTournaments(Params params, QueryParams queryParams) throws ResponseException {
 	
-		String userId = queryParams.get("filter_userid");
-		
-		if(userId != null) {
-			return findTournamentsWithUserFilter(params, queryParams);
-		}
-		
-		String tournament = queryParams.get("filter_tournament");
-		if(tournament != null) {
-			return searchTournaments(params, queryParams);
-		}
 		
 		Dao tournamentDao = new Dao(TournamentModel.class);
 
@@ -503,17 +171,15 @@ public class TournamentService {
 		}
 		tournamentConditions.add(new ConditionEntry(null, "organization_id", Arrays.asList(Operators.EQUAL), organizationId));
 		
-		Operators operator = Operators.AND;
-		
 		String tournamentName = queryParams.get("filter_tournamentname");
 		if(tournamentName != null) {
-			tournamentConditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_name", Arrays.asList(Operators.ILIKE), '%' + tournamentName + '%'));
+			tournamentConditions.add(new ConditionEntry(Arrays.asList(Operators.AND), "tournament_name", Arrays.asList(Operators.ILIKE), '%' + tournamentName + '%'));
 		}
 		
 		try {
 			Short tournamentStatus = queryParams.getShort("filter_tournamentstatus");
 			if(tournamentStatus != null) {
-				tournamentConditions.add(new ConditionEntry(Arrays.asList(operator), "tournament_status", Arrays.asList(Operators.EQUAL), tournamentStatus));
+				tournamentConditions.add(new ConditionEntry(Arrays.asList(Operators.AND), "tournament_status", Arrays.asList(Operators.EQUAL), tournamentStatus));
 			}
 		}
 		catch(NumberFormatException e) {
@@ -524,13 +190,13 @@ public class TournamentService {
 		
 		String sportName = queryParams.get("filter_sportname");
 		if(sportName != null) {
-			sportConditions.add(new ConditionEntry(Arrays.asList(operator), "sport_name", Arrays.asList(Operators.ILIKE), '%' + sportName + '%'));
+			sportConditions.add(new ConditionEntry(Arrays.asList(Operators.AND), "sport_name", Arrays.asList(Operators.ILIKE), '%' + sportName + '%'));
 		}
 		
 		try {
 			Short sportType = queryParams.getShort("filter_sporttype");
 			if(sportType != null) {
-				sportConditions.add(new ConditionEntry(Arrays.asList(operator), "sport_type", Arrays.asList(Operators.EQUAL), sportType));
+				sportConditions.add(new ConditionEntry(Arrays.asList(Operators.AND), "sport_type", Arrays.asList(Operators.EQUAL), sportType));
 			}			
 		}
 		catch(NumberFormatException e) {
@@ -546,12 +212,69 @@ public class TournamentService {
 			tableConditionEntries.add(new TableConditionEntry(TableNames.SPORTS, sportConditions));
 		}
 		
+		Long userId;
+		try {
+			userId = queryParams.getLong("filter_userid");
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid user id");
+		}
+		if(userId != null) {
+			tableConditionEntries.add(
+				new TableConditionEntry(
+					TableNames.TEAM_MEMBERS, 
+					Arrays.asList(
+						new ConditionEntry(Arrays.asList(Operators.AND, Operators.OPEN_BRACKET), "user_id", Arrays.asList(Operators.EQUAL), userId)
+					)
+				)
+			);
+			tableConditionEntries.add(
+				new TableConditionEntry(
+					TableNames.TOURNAMENT_PARTICIPANTS, 
+					Arrays.asList(
+						new ConditionEntry(Arrays.asList(Operators.OR), "user_id", Arrays.asList(Operators.EQUAL), userId),
+						new ConditionEntry(Arrays.asList(Operators.CLOSED_BRACKET), null, null, null)
+					)
+				)
+			);
+		}
+		
+		String tournamentSearch = queryParams.get("filter_tournament");
+		if(tournamentSearch != null) {
+			tableConditionEntries.add(
+				new TableConditionEntry(
+					TableNames.TOURNAMENTS, 
+					Arrays.asList(
+						new ConditionEntry(Arrays.asList(Operators.AND, Operators.OPEN_BRACKET), "tournament_name", Arrays.asList(Operators.ILIKE), '%' + tournamentSearch + '%')
+					)
+				)
+			);
+			tableConditionEntries.add(
+				new TableConditionEntry(
+					TableNames.SPORTS,
+					Arrays.asList(
+						new ConditionEntry(Arrays.asList(Operators.OR), "sport_name", Arrays.asList(Operators.ILIKE), '%' + tournamentSearch + '%'),
+						new ConditionEntry(Arrays.asList(Operators.CLOSED_BRACKET), null, null, null)
+					)
+				)
+			);
+		}
+		
+		List<JoinEntry> joinEntries = new ArrayList<>();
+			joinEntries.add(new JoinEntry(TableNames.TOURNAMENTS, TableNames.SPORTS, "sport_id", "sport_id", JoinTypes.JOIN));
+		
+		if(userId != null) {
+			joinEntries.add(new JoinEntry(TableNames.TOURNAMENTS, TableNames.TOURNAMENT_PARTICIPANTS, "tournament_id", "tournament_id", JoinTypes.LEFT_JOIN));
+			joinEntries.add(new JoinEntry(TableNames.TOURNAMENTS, TableNames.TOURNAMENT_TEAMS, "tournament_id", "tournament_id", JoinTypes.LEFT_JOIN));
+			joinEntries.add(new JoinEntry(TableNames.TOURNAMENT_TEAMS, TableNames.TEAM_MEMBERS, "team_id", "team_id", JoinTypes.LEFT_JOIN));
+		}
+		
 		List<OrderEntry> sortEntries = new ArrayList<>();
 		
-		String sortCreatedAt = queryParams.get("sort_createdat");
-		if(sortCreatedAt != null) {
+		String sortTimeCreated = queryParams.get("sort_timecreated");
+		if(sortTimeCreated != null) {
 			try {
-				SortOrder sortOrder = SortOrder.getSortOrder(sortCreatedAt);
+				SortOrder sortOrder = SortOrder.getSortOrder(sortTimeCreated);
 				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_created_at", sortOrder));
 			}
 			catch(IllegalArgumentException e) {
@@ -587,7 +310,7 @@ public class TournamentService {
 		String sortTournamentDate = queryParams.get("sort_tournamentdate");
 		if(sortTournamentDate != null) {
 			try {
-				SortOrder sortOrder = null;				
+				SortOrder sortOrder = SortOrder.getSortOrder(sortTournamentDate);				
 				sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_date", sortOrder));
 			}
 			catch(IllegalArgumentException e) {
@@ -618,6 +341,10 @@ public class TournamentService {
 				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
 			}
 			catch(NullPointerException e) {}
+		}
+		
+		if(sortEntries.isEmpty()) {
+			sortEntries.add(new OrderEntry(TableNames.TOURNAMENTS, "tournament_created_at", SortOrder.DESC));
 		}
 		
 		Integer limit;
@@ -656,21 +383,35 @@ public class TournamentService {
 				new TableColumnEntry(TableNames.TOURNAMENTS, Arrays.asList("*")),
 				new TableColumnEntry(TableNames.SPORTS, Arrays.asList("*"))
 			),
-			Arrays.asList(
-				new JoinEntry(TableNames.TOURNAMENTS, TableNames.SPORTS, "sport_id", "sport_id", JoinTypes.JOIN)
-			),
+			joinEntries,
 			tableConditionEntries,
 			sortEntries,
 			limit,
 			offset
 		);
 		
-		if(tournamentDetailsList == null || tournamentDetailsList.isEmpty()) {
+		if(tournamentDetailsList == null || tournamentDetailsList.isEmpty() || tournamentDetailsList.get(0) == null || tournamentDetailsList.get(0).isEmpty()) {
 			return new ArrayList<>();
 		}
 		
-		if(tournamentDetailsList.get(0) == null || tournamentDetailsList.get(0).isEmpty()) {
-			return new ArrayList<>();
+		Boolean includeTournamentCount = queryParams.getBoolean("include_tournamentscount");
+		if(includeTournamentCount != null && includeTournamentCount) {
+			
+			Map<GroupEntry, Functions> fieldFunctions = new HashMap<>();
+			fieldFunctions.put(new GroupEntry(TableNames.TOURNAMENTS, "*"), Functions.COUNT);
+			
+			List<List<Model>> tournamentCountDetails = tournamentDao.findAllWithJoin(
+					Arrays.asList(
+							new TableColumnEntry(TableNames.TOURNAMENTS, Arrays.asList("*"))
+						),
+						joinEntries,
+						tableConditionEntries,
+						fieldFunctions,
+						null,
+						null
+					);
+			
+			tournamentDetailsList.add(0, tournamentCountDetails.get(0));
 		}
 		
 		return tournamentDetailsList;

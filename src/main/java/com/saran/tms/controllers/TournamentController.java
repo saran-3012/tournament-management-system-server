@@ -13,6 +13,7 @@ import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
+import com.saran.tms.models.AggregateModel;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.SportModel;
 import com.saran.tms.models.TournamentModel;
@@ -92,6 +93,18 @@ public class TournamentController implements Controller {
 		
 		List<List<Model>> tournamentDetailsList = TournamentService.findTournaments(params, queryParams);
 		
+		JSONObject dataObject = new JSONObject();
+
+		Boolean includeTournamentCount = queryParams.getBoolean("include_tournamentscount");
+		if(includeTournamentCount != null && includeTournamentCount) {
+			Long tournamentsCount = 0L;
+			if(!tournamentDetailsList.isEmpty() && !tournamentDetailsList.get(0).isEmpty()) {				
+				AggregateModel aggregateModel = (AggregateModel) tournamentDetailsList.remove(0).get(0);
+				tournamentsCount = aggregateModel.getCount();
+			}
+			dataObject.put("tournamentsCount", tournamentsCount);
+		}
+		
 		JSONArray tournamentsData = new JSONArray();
 		
 		for(List<Model> tournamentDetails : tournamentDetailsList) {
@@ -99,8 +112,11 @@ public class TournamentController implements Controller {
 			tournamentsData.put(tournamentData);
 		}
 		
+		dataObject.put("tournaments", tournamentsData);
+		
 		JSONObject jsonData = new JSONObject();
-		jsonData.put("data", tournamentsData);
+		
+		jsonData.put("data", dataObject);
 		jsonData.put("message", "Tournaments found");
 		
 		return new ResponseData(StatusCodes.OK, jsonData);

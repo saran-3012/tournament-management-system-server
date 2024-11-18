@@ -464,4 +464,52 @@ public class TournamentParticipantService {
 		
 		return (TournamentParticipantModel) deletedParticipants.get(0);	
 	}
+	
+	public static List<Model> deleteTournamentEventParticipantBatch(Params params) throws ResponseException {
+		Dao tournamentEventParticipantDao = new Dao(TournamentParticipantModel.class);
+		
+		Long eventId;
+		try {
+			eventId = params.getLong("event_id");
+			if(eventId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Event id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid event id");
+		}
+		String eventParticipantIds[] = params.getStringArray("event_participant_id");
+		
+		int n = eventParticipantIds.length;
+		if(n == 0) {
+			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Event participant id is not provided");
+		}
+		
+		List<ConditionEntry> conditionEntries = new ArrayList<>();
+		
+		conditionEntries.add(new ConditionEntry(null, "tournament_event_id", Arrays.asList(Operators.EQUAL), eventId));
+		
+		boolean isFirstId = true;
+		for(String eventParticipantId : eventParticipantIds) {
+			Long eParticipantId;
+			try {
+				eParticipantId = Long.parseLong(eventParticipantId);
+			}
+			catch(NumberFormatException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid event participant id");
+			}
+			if(isFirstId) {				
+				conditionEntries.add(new ConditionEntry(Arrays.asList(Operators.AND, Operators.OPEN_BRACKET), "tournament_event_participant_id", Arrays.asList(Operators.EQUAL), eParticipantId));
+				isFirstId = false;
+			}
+			else {
+				conditionEntries.add(new ConditionEntry(Arrays.asList(Operators.OR), "tournament_event_participant_id", Arrays.asList(Operators.EQUAL), eParticipantId));
+			}
+		}
+		conditionEntries.add(new ConditionEntry(Arrays.asList(Operators.CLOSED_BRACKET), null, null, null));
+		
+		List<Model> deletedEventParticipants = tournamentEventParticipantDao.deleteAndReturn(conditionEntries, Arrays.asList("*"));
+		
+		return (deletedEventParticipants == null)? new ArrayList<>() : deletedEventParticipants;
+	}
 }

@@ -1,7 +1,5 @@
 package com.saran.tms.utils;
 
-import java.lang.reflect.InvocationTargetException;
-
 public class Accessor {
 	
 	public static String getAccessor(String fieldName, String accessPrefix) {
@@ -11,7 +9,7 @@ public class Accessor {
 					.toString();
 	}
 	
-	public static void setValue(Object obj, String dataType, String fieldName, Object fieldValue) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+	public static void setValue(Object obj, String dataType, String fieldName, Object fieldValue) throws Exception {
 		String setterName = getAccessor(fieldName, "set");
 		Class<?> objClass = obj.getClass();
 		
@@ -45,7 +43,7 @@ public class Accessor {
 		}
 	}
 	
-	public static Object getValue(Object obj, String fieldName) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, NoSuchMethodException, SecurityException {
+	public static Object getValue(Object obj, String fieldName) throws Exception {
 		String getterName = getAccessor(fieldName, "get");
 		return obj.getClass().getDeclaredMethod(getterName).invoke(obj);
 	}

@@ -195,9 +195,38 @@ public class TournamentEventService {
 				),
 				Arrays.asList(
 					new OrderEntry(TableNames.TOURNAMENT_EVENTS, "tournament_event_date", SortOrder.ASC)
-				), limit, offset);
+				), 
+				limit, offset);
 		
 		return tournamentEvents;
 		
+	}
+	
+	public static TournamentEventModel updateTournamentEventById(Params params, TournamentEventModel tournamentEvent) throws ResponseException {
+		Dao tournamentEventDao = new Dao(TournamentEventModel.class);
+		
+		Long tournamentEventId;
+		try {
+			tournamentEventId = params.getLong("event_id");
+			if(tournamentEventId == null) {
+				throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Event id is not provided");
+			}
+		}
+		catch(NumberFormatException e) {
+			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
+		}
+		
+		List<Model> updatedTournamentEvents = tournamentEventDao.updateAndReturn(
+											tournamentEvent, 
+											Arrays.asList(
+													new ConditionEntry(null, "tournament_event_id", Arrays.asList(Operators.EQUAL), tournamentEventId)
+											), 
+											Arrays.asList("*")
+										);
+		if(updatedTournamentEvents == null || updatedTournamentEvents.isEmpty()) {
+			throw new ResponseException(StatusCodes.NOT_FOUND, "Tournament not found");
+		}
+		
+		return (TournamentEventModel) updatedTournamentEvents.get(0);
 	}
 }

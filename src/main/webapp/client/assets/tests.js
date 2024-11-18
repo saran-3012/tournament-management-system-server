@@ -67,7 +67,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('components/organization-user-form.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'components/organization-user-form.js should pass ESLint\n\n169:20 - \'$\' is not defined. (no-undef)\n186:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n206:25 - \'formData\' is defined but never used. (no-unused-vars)\n231:52 - Empty block statement. (no-empty)');
+    assert.ok(false, 'components/organization-user-form.js should pass ESLint\n\n172:20 - \'$\' is not defined. (no-undef)\n189:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n254:10 - \'$\' is not defined. (no-undef)\n270:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n288:36 - \'errorThrown\' is defined but never used. (no-unused-vars)\n301:15 - \'userInfo\' is assigned a value but never used. (no-unused-vars)\n307:9 - \'Promise\' is not defined. (no-undef)\n313:21 - \'err\' is defined but never used. (no-unused-vars)\n321:21 - \'err\' is defined but never used. (no-unused-vars)\n334:20 - \'$\' is not defined. (no-undef)');
   });
 
   QUnit.test('components/organization-user-navbar.js', function (assert) {
@@ -137,17 +137,17 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('components/tournament-schedule-card.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'components/tournament-schedule-card.js should pass ESLint\n\n31:9 - \'$\' is not defined. (no-undef)\n100:9 - \'$\' is not defined. (no-undef)\n109:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n130:14 - Unnecessary semicolon. (no-extra-semi)');
+    assert.ok(false, 'components/tournament-schedule-card.js should pass ESLint\n\n31:9 - \'$\' is not defined. (no-undef)\n101:9 - \'$\' is not defined. (no-undef)\n110:38 - \'jqXHR\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('components/tournament-schedule-form.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'components/tournament-schedule-form.js should pass ESLint\n\n91:13 - Unexpected lexical declaration in case block. (no-case-declarations)\n95:13 - Unexpected lexical declaration in case block. (no-case-declarations)\n108:9 - \'$\' is not defined. (no-undef)\n119:34 - \'jqXHR\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'components/tournament-schedule-form.js should pass ESLint\n\n113:9 - \'$\' is not defined. (no-undef)\n122:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n156:13 - Unexpected lexical declaration in case block. (no-case-declarations)\n160:13 - Unexpected lexical declaration in case block. (no-case-declarations)\n173:9 - \'$\' is not defined. (no-undef)\n184:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n254:40 - \'$\' is not defined. (no-undef)\n265:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n280:13 - Unexpected lexical declaration in case block. (no-case-declarations)\n300:56 - \'$\' is not defined. (no-undef)\n332:59 - \'$\' is not defined. (no-undef)\n354:13 - Unexpected lexical declaration in case block. (no-case-declarations)\n374:49 - \'$\' is not defined. (no-undef)\n406:52 - \'$\' is not defined. (no-undef)\n436:9 - \'Promise\' is not defined. (no-undef)\n490:13 - Unexpected lexical declaration in case block. (no-case-declarations)');
   });
 
   QUnit.test('components/user-card.js', function (assert) {
     assert.expect(1);
-    assert.ok(true, 'components/user-card.js should pass ESLint\n\n');
+    assert.ok(false, 'components/user-card.js should pass ESLint\n\n19:37 - \'event\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('controllers/application.js', function (assert) {
@@ -172,12 +172,17 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('controllers/organizations/index.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'controllers/organizations/index.js should pass ESLint\n\n28:13 - \'$\' is not defined. (no-undef)\n57:13 - \'$\' is not defined. (no-undef)\n65:42 - \'xqXHR\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'controllers/organizations/index.js should pass ESLint\n\n48:13 - \'$\' is not defined. (no-undef)');
   });
 
   QUnit.test('controllers/organizations/organization.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'controllers/organizations/organization.js should pass ESLint\n\n45:13 - \'$\' is not defined. (no-undef)\n53:42 - \'xqXHR\' is defined but never used. (no-unused-vars)\n76:13 - \'$\' is not defined. (no-undef)\n87:42 - \'jqXHR\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'controllers/organizations/organization.js should pass ESLint\n\n94:13 - \'$\' is not defined. (no-undef)\n105:42 - \'jqXHR\' is defined but never used. (no-unused-vars)');
+  });
+
+  QUnit.test('controllers/profile.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'controllers/profile.js should pass ESLint\n\n');
   });
 
   QUnit.test('controllers/register.js', function (assert) {
@@ -192,7 +197,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('controllers/tournaments/index.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'controllers/tournaments/index.js should pass ESLint\n\n27:27 - \'searchConfig\' is defined but never used. (no-unused-vars)\n68:13 - \'$\' is not defined. (no-undef)\n76:42 - \'xqXHR\' is defined but never used. (no-unused-vars)\n113:13 - \'$\' is not defined. (no-undef)\n131:38 - \'jqXHR\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'controllers/tournaments/index.js should pass ESLint\n\n94:13 - \'$\' is not defined. (no-undef)\n112:38 - \'jqXHR\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('controllers/tournaments/new.js', function (assert) {
@@ -202,12 +207,17 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('controllers/tournaments/tournament.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'controllers/tournaments/tournament.js should pass ESLint\n\n45:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n58:27 - \'includeLimit\' is assigned a value but never used. (no-unused-vars)\n77:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n204:38 - \'teamRegistrationType\' is defined but never used. (no-unused-vars)\n376:42 - \'xqXHR\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'controllers/tournaments/tournament.js should pass ESLint\n\n45:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n58:27 - \'includeLimit\' is assigned a value but never used. (no-unused-vars)\n77:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n204:38 - \'teamRegistrationType\' is defined but never used. (no-unused-vars)\n382:42 - \'xqXHR\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('controllers/tournaments/tournament/edit.js', function (assert) {
     assert.expect(1);
     assert.ok(false, 'controllers/tournaments/tournament/edit.js should pass ESLint\n\n189:9 - \'$\' is not defined. (no-undef)\n203:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n204:25 - \'data\' is not defined. (no-undef)');
+  });
+
+  QUnit.test('helpers/add.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'helpers/add.js should pass ESLint\n\n');
   });
 
   QUnit.test('helpers/and.js', function (assert) {
@@ -230,6 +240,11 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
     assert.ok(true, 'helpers/concat.js should pass ESLint\n\n');
   });
 
+  QUnit.test('helpers/contains.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'helpers/contains.js should pass ESLint\n\n');
+  });
+
   QUnit.test('helpers/eq.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'helpers/eq.js should pass ESLint\n\n');
@@ -238,6 +253,11 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
   QUnit.test('helpers/get-date.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'helpers/get-date.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('helpers/gt.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'helpers/gt.js should pass ESLint\n\n');
   });
 
   QUnit.test('helpers/instance-gt.js', function (assert) {
@@ -255,6 +275,11 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
     assert.ok(true, 'helpers/is-empty.js should pass ESLint\n\n');
   });
 
+  QUnit.test('helpers/lt.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'helpers/lt.js should pass ESLint\n\n');
+  });
+
   QUnit.test('helpers/millis-to-date-time.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'helpers/millis-to-date-time.js should pass ESLint\n\n');
@@ -268,6 +293,11 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
   QUnit.test('helpers/n-eq.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'helpers/n-eq.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('helpers/not.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'helpers/not.js should pass ESLint\n\n');
   });
 
   QUnit.test('helpers/object.js', function (assert) {
@@ -293,6 +323,11 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
   QUnit.test('helpers/sport-type.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'helpers/sport-type.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('helpers/subtract.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'helpers/subtract.js should pass ESLint\n\n');
   });
 
   QUnit.test('helpers/test-logger.js', function (assert) {
@@ -342,7 +377,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('routes/dashboard.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'routes/dashboard.js should pass ESLint\n\n9:5 - Duplicate key \'authenticationService\'. (no-dupe-keys)\n16:17 - \'transition\' is defined but never used. (no-unused-vars)\n34:47 - \'$\' is not defined. (no-undef)\n44:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n54:43 - \'$\' is not defined. (no-undef)\n63:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n73:45 - \'$\' is not defined. (no-undef)\n82:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n95:49 - \'$\' is not defined. (no-undef)\n104:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n114:47 - \'$\' is not defined. (no-undef)\n123:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n133:45 - \'$\' is not defined. (no-undef)\n142:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n153:16 - \'Promise\' is not defined. (no-undef)\n201:24 - \'transition\' is defined but never used. (no-unused-vars)');
+    assert.ok(false, 'routes/dashboard.js should pass ESLint\n\n9:5 - Duplicate key \'authenticationService\'. (no-dupe-keys)\n16:17 - \'transition\' is defined but never used. (no-unused-vars)\n34:47 - \'$\' is not defined. (no-undef)\n44:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n55:43 - \'$\' is not defined. (no-undef)\n64:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n74:45 - \'$\' is not defined. (no-undef)\n83:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n96:49 - \'$\' is not defined. (no-undef)\n105:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n114:47 - \'$\' is not defined. (no-undef)\n123:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n132:45 - \'$\' is not defined. (no-undef)\n141:42 - \'jqXHR\' is defined but never used. (no-unused-vars)\n152:16 - \'Promise\' is not defined. (no-undef)\n200:24 - \'transition\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('routes/index.js', function (assert) {
@@ -367,12 +402,12 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('routes/organizations/index.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'routes/organizations/index.js should pass ESLint\n\n36:21 - \'$\' is not defined. (no-undef)\n37:16 - \'$\' is not defined. (no-undef)');
+    assert.ok(false, 'routes/organizations/index.js should pass ESLint\n\n97:21 - Unnecessary semicolon. (no-extra-semi)\n125:16 - \'$\' is not defined. (no-undef)\n172:24 - \'transition\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('routes/organizations/organization.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'routes/organizations/organization.js should pass ESLint\n\n41:37 - \'$\' is not defined. (no-undef)\n73:30 - \'$\' is not defined. (no-undef)\n104:17 - \'Promise\' is not defined. (no-undef)');
+    assert.ok(false, 'routes/organizations/organization.js should pass ESLint\n\n80:37 - \'$\' is not defined. (no-undef)\n88:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n139:30 - \'$\' is not defined. (no-undef)\n171:17 - \'Promise\' is not defined. (no-undef)\n207:24 - \'transition\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('routes/organizations/organization/user.js', function (assert) {
@@ -382,7 +417,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('routes/profile.js', function (assert) {
     assert.expect(1);
-    assert.ok(true, 'routes/profile.js should pass ESLint\n\n');
+    assert.ok(false, 'routes/profile.js should pass ESLint\n\n24:16 - \'$\' is not defined. (no-undef)\n32:42 - \'jqXHR\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('routes/register.js', function (assert) {
@@ -397,7 +432,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('routes/tournaments/index.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'routes/tournaments/index.js should pass ESLint\n\n51:16 - \'$\' is not defined. (no-undef)');
+    assert.ok(false, 'routes/tournaments/index.js should pass ESLint\n\n128:21 - Unnecessary semicolon. (no-extra-semi)\n156:16 - \'$\' is not defined. (no-undef)\n212:24 - \'transition\' is defined but never used. (no-unused-vars)');
   });
 
   QUnit.test('routes/tournaments/new.js', function (assert) {
@@ -417,7 +452,7 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('services/authentication-service.js', function (assert) {
     assert.expect(1);
-    assert.ok(false, 'services/authentication-service.js should pass ESLint\n\n72:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n116:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n150:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n183:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n189:13 - \'messageQueueService\' is not defined. (no-undef)');
+    assert.ok(false, 'services/authentication-service.js should pass ESLint\n\n72:38 - \'jqXHR\' is defined but never used. (no-unused-vars)\n75:36 - \'errorThrown\' is defined but never used. (no-unused-vars)\n115:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n119:36 - \'errorThrown\' is defined but never used. (no-unused-vars)\n148:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n152:34 - \'errorThrown\' is defined but never used. (no-unused-vars)\n190:34 - \'jqXHR\' is defined but never used. (no-unused-vars)\n197:13 - \'messageQueueService\' is not defined. (no-undef)');
   });
 
   QUnit.test('services/data-persistance-service.js', function (assert) {
@@ -497,12 +532,17 @@ define('tournament-management-system/tests/app.lint-test', [], function () {
 
   QUnit.test('utils/millis-to-date.js', function (assert) {
     assert.expect(1);
-    assert.ok(true, 'utils/millis-to-date.js should pass ESLint\n\n');
+    assert.ok(false, 'utils/millis-to-date.js should pass ESLint\n\n9:26 - Unnecessary semicolon. (no-extra-semi)\n9:26 - Unreachable code. (no-unreachable)');
   });
 
   QUnit.test('utils/millis-to-time.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'utils/millis-to-time.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('utils/password-validator.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'utils/password-validator.js should pass ESLint\n\n');
   });
 
   QUnit.test('utils/rsa-encrypter.js', function (assert) {
@@ -1473,6 +1513,26 @@ define('tournament-management-system/tests/integration/components/user-card-test
     assert.equal(this.$().text().trim(), 'template block text');
   });
 });
+define('tournament-management-system/tests/integration/helpers/add-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleForComponent)('add', 'helper:add', {
+    integration: true
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it renders', function (assert) {
+    this.set('inputValue', '1234');
+
+    this.render(Ember.HTMLBars.template({
+      "id": "2wJ7vnMJ",
+      "block": "{\"statements\":[[1,[33,[\"add\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
+      "meta": {}
+    }));
+
+    assert.equal(this.$().text().trim(), '1234');
+  });
+});
 define('tournament-management-system/tests/integration/helpers/and-test', ['ember-qunit'], function (_emberQunit) {
   'use strict';
 
@@ -1553,6 +1613,26 @@ define('tournament-management-system/tests/integration/helpers/concat-test', ['e
     assert.equal(this.$().text().trim(), '1234');
   });
 });
+define('tournament-management-system/tests/integration/helpers/contains-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleForComponent)('contains', 'helper:contains', {
+    integration: true
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it renders', function (assert) {
+    this.set('inputValue', '1234');
+
+    this.render(Ember.HTMLBars.template({
+      "id": "XBuLjKpc",
+      "block": "{\"statements\":[[1,[33,[\"contains\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
+      "meta": {}
+    }));
+
+    assert.equal(this.$().text().trim(), '1234');
+  });
+});
 define('tournament-management-system/tests/integration/helpers/eq-test', ['ember-qunit'], function (_emberQunit) {
   'use strict';
 
@@ -1587,6 +1667,26 @@ define('tournament-management-system/tests/integration/helpers/get-date-test', [
     this.render(Ember.HTMLBars.template({
       "id": "MKjU55p+",
       "block": "{\"statements\":[[1,[33,[\"get-date\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
+      "meta": {}
+    }));
+
+    assert.equal(this.$().text().trim(), '1234');
+  });
+});
+define('tournament-management-system/tests/integration/helpers/gt-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleForComponent)('gt', 'helper:gt', {
+    integration: true
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it renders', function (assert) {
+    this.set('inputValue', '1234');
+
+    this.render(Ember.HTMLBars.template({
+      "id": "06IyGDRK",
+      "block": "{\"statements\":[[1,[33,[\"gt\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
       "meta": {}
     }));
 
@@ -1653,6 +1753,26 @@ define('tournament-management-system/tests/integration/helpers/is-empty-test', [
     assert.equal(this.$().text().trim(), '1234');
   });
 });
+define('tournament-management-system/tests/integration/helpers/lt-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleForComponent)('lt', 'helper:lt', {
+    integration: true
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it renders', function (assert) {
+    this.set('inputValue', '1234');
+
+    this.render(Ember.HTMLBars.template({
+      "id": "KHsVGjcc",
+      "block": "{\"statements\":[[1,[33,[\"lt\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
+      "meta": {}
+    }));
+
+    assert.equal(this.$().text().trim(), '1234');
+  });
+});
 define('tournament-management-system/tests/integration/helpers/millis-to-date-test', ['ember-qunit'], function (_emberQunit) {
   'use strict';
 
@@ -1707,6 +1827,26 @@ define('tournament-management-system/tests/integration/helpers/n-eq-test', ['emb
     this.render(Ember.HTMLBars.template({
       "id": "CaD9ZqUL",
       "block": "{\"statements\":[[1,[33,[\"n-eq\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
+      "meta": {}
+    }));
+
+    assert.equal(this.$().text().trim(), '1234');
+  });
+});
+define('tournament-management-system/tests/integration/helpers/not-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleForComponent)('not', 'helper:not', {
+    integration: true
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it renders', function (assert) {
+    this.set('inputValue', '1234');
+
+    this.render(Ember.HTMLBars.template({
+      "id": "qx8xANP7",
+      "block": "{\"statements\":[[1,[33,[\"not\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
       "meta": {}
     }));
 
@@ -1807,6 +1947,26 @@ define('tournament-management-system/tests/integration/helpers/sport-type-test',
     this.render(Ember.HTMLBars.template({
       "id": "usOY/hrn",
       "block": "{\"statements\":[[1,[33,[\"sport-type\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
+      "meta": {}
+    }));
+
+    assert.equal(this.$().text().trim(), '1234');
+  });
+});
+define('tournament-management-system/tests/integration/helpers/subtract-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleForComponent)('subtract', 'helper:subtract', {
+    integration: true
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it renders', function (assert) {
+    this.set('inputValue', '1234');
+
+    this.render(Ember.HTMLBars.template({
+      "id": "vuuENbMT",
+      "block": "{\"statements\":[[1,[33,[\"subtract\"],[[28,[\"inputValue\"]]],null],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}",
       "meta": {}
     }));
 
@@ -2089,6 +2249,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
     assert.ok(true, 'integration/components/user-card-test.js should pass ESLint\n\n');
   });
 
+  QUnit.test('integration/helpers/add-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/helpers/add-test.js should pass ESLint\n\n');
+  });
+
   QUnit.test('integration/helpers/and-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/helpers/and-test.js should pass ESLint\n\n');
@@ -2109,6 +2274,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
     assert.ok(true, 'integration/helpers/concat-test.js should pass ESLint\n\n');
   });
 
+  QUnit.test('integration/helpers/contains-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/helpers/contains-test.js should pass ESLint\n\n');
+  });
+
   QUnit.test('integration/helpers/eq-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/helpers/eq-test.js should pass ESLint\n\n');
@@ -2117,6 +2287,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
   QUnit.test('integration/helpers/get-date-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/helpers/get-date-test.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('integration/helpers/gt-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/helpers/gt-test.js should pass ESLint\n\n');
   });
 
   QUnit.test('integration/helpers/instance-gt-test.js', function (assert) {
@@ -2134,6 +2309,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
     assert.ok(true, 'integration/helpers/is-empty-test.js should pass ESLint\n\n');
   });
 
+  QUnit.test('integration/helpers/lt-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/helpers/lt-test.js should pass ESLint\n\n');
+  });
+
   QUnit.test('integration/helpers/millis-to-date-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/helpers/millis-to-date-test.js should pass ESLint\n\n');
@@ -2147,6 +2327,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
   QUnit.test('integration/helpers/n-eq-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/helpers/n-eq-test.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('integration/helpers/not-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/helpers/not-test.js should pass ESLint\n\n');
   });
 
   QUnit.test('integration/helpers/object-test.js', function (assert) {
@@ -2172,6 +2357,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
   QUnit.test('integration/helpers/sport-type-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'integration/helpers/sport-type-test.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('integration/helpers/subtract-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'integration/helpers/subtract-test.js should pass ESLint\n\n');
   });
 
   QUnit.test('integration/helpers/test-logger-test.js', function (assert) {
@@ -2232,6 +2422,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
   QUnit.test('unit/controllers/organizations/organization-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'unit/controllers/organizations/organization-test.js should pass ESLint\n\n');
+  });
+
+  QUnit.test('unit/controllers/profile-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'unit/controllers/profile-test.js should pass ESLint\n\n');
   });
 
   QUnit.test('unit/controllers/register-test.js', function (assert) {
@@ -2444,6 +2639,11 @@ define('tournament-management-system/tests/tests.lint-test', [], function () {
     assert.ok(true, 'unit/utils/millis-to-time-test.js should pass ESLint\n\n');
   });
 
+  QUnit.test('unit/utils/password-validator-test.js', function (assert) {
+    assert.expect(1);
+    assert.ok(true, 'unit/utils/password-validator-test.js should pass ESLint\n\n');
+  });
+
   QUnit.test('unit/utils/rsa-encrypter-test.js', function (assert) {
     assert.expect(1);
     assert.ok(true, 'unit/utils/rsa-encrypter-test.js should pass ESLint\n\n');
@@ -2538,6 +2738,20 @@ define('tournament-management-system/tests/unit/controllers/organizations/organi
   'use strict';
 
   (0, _emberQunit.moduleFor)('controller:organizations/organization', 'Unit | Controller | organizations/organization', {
+    // Specify the other units that are required for this test.
+    // needs: ['controller:foo']
+  });
+
+  // Replace this with your real tests.
+  (0, _emberQunit.test)('it exists', function (assert) {
+    var controller = this.subject();
+    assert.ok(controller);
+  });
+});
+define('tournament-management-system/tests/unit/controllers/profile-test', ['ember-qunit'], function (_emberQunit) {
+  'use strict';
+
+  (0, _emberQunit.moduleFor)('controller:profile', 'Unit | Controller | profile', {
     // Specify the other units that are required for this test.
     // needs: ['controller:foo']
   });
@@ -3076,6 +3290,17 @@ define('tournament-management-system/tests/unit/utils/millis-to-time-test', ['to
   // Replace this with your real tests.
   (0, _qunit.test)('it works', function (assert) {
     var result = (0, _millisToTime.default)();
+    assert.ok(result);
+  });
+});
+define('tournament-management-system/tests/unit/utils/password-validator-test', ['tournament-management-system/utils/password-validator', 'qunit'], function (_passwordValidator, _qunit) {
+  'use strict';
+
+  (0, _qunit.module)('Unit | Utility | password validator');
+
+  // Replace this with your real tests.
+  (0, _qunit.test)('it works', function (assert) {
+    var result = (0, _passwordValidator.default)();
     assert.ok(result);
   });
 });

@@ -24,6 +24,11 @@ public class Params {
 		return (value == null)? null : (long) Long.parseLong(value);
 	}
 	
+	public String[] getStringArray(String key) {
+		String value = params.get(key);
+		return (value == null)? null : value.split(",");
+	}
+	
 	public void put(String key, String value) {
 		params.put(key, value);
 	}

@@ -32,8 +32,7 @@ public class ModelJsonParser {
 			
 			try {
 				fieldValue = Accessor.getValue(model, fieldName);
-			} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-					| NoSuchMethodException | SecurityException e) {
+			} catch (Exception e) {
 				e.printStackTrace();
 				ApplicationLogger.log(Level.WARNING, "Unable to invoke function with reflection", e);
 				throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
@@ -66,8 +65,7 @@ public class ModelJsonParser {
 				
 				try {
 					fieldValue = Accessor.getValue(model, fieldName);
-				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException
-						| NoSuchMethodException | SecurityException e) {
+				} catch (Exception e) {
 					e.printStackTrace();
 					ApplicationLogger.log(Level.WARNING, "Unable to invoke function with reflection", e);
 					throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");

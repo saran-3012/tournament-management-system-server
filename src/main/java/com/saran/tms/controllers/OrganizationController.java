@@ -12,6 +12,7 @@ import com.saran.tms.annotations.RouteGroup;
 import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
+import com.saran.tms.models.AggregateModel;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.OrganizationModel;
 import com.saran.tms.routers.Params;
@@ -63,6 +64,19 @@ public class OrganizationController implements Controller {
 		
 		List<List<Model>> orgDetailsList = OrganizationService.findOrganizations(params, queryParams);
 		
+		JSONObject dataObject =  new JSONObject();
+		
+		
+		Boolean includeOrganizaionCount = queryParams.getBoolean("include_organizationscount");
+		if(includeOrganizaionCount != null && includeOrganizaionCount) {
+			Long organizationsCount = 0L;
+			if(!orgDetailsList.isEmpty()) {
+				AggregateModel aggregateModel = (AggregateModel) orgDetailsList.remove(0).get(0);
+				organizationsCount = aggregateModel.getCount();
+			}
+			dataObject.put("organizationsCount", organizationsCount);
+		}
+		
 		JSONArray orgsData = new JSONArray();
 		
 		for(List<Model> orgDetails : orgDetailsList) {
@@ -70,8 +84,10 @@ public class OrganizationController implements Controller {
 			orgsData.put(orgData);
 		}
 		
+		dataObject.put("organizations", orgsData);
+		
 		JSONObject jsonData = new JSONObject();
-		jsonData.put("data", orgsData);
+		jsonData.put("data", dataObject);
 		jsonData.put("message", "Organizations found");
 		
 		return new ResponseData(StatusCodes.OK, jsonData);

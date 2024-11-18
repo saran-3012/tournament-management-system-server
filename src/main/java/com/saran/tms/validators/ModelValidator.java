@@ -1,7 +1,6 @@
 package com.saran.tms.validators;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
@@ -58,7 +57,7 @@ public class ModelValidator {
 			try {
 				fieldValue = Accessor.getValue(model, fieldName);
 			} 
-			catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+			catch (Exception e) {
 				e.printStackTrace();
 				ApplicationLogger.log(Level.SEVERE, "Unable to access the method using reflection", e);
 				throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
@@ -68,7 +67,7 @@ public class ModelValidator {
 			if(columnConstraints.contains(Constraints.AUTO_ASSIGN)) {
 				try {
 					Accessor.setValue(model, field.getType().getSimpleName(), fieldName, null);
-				} catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
+				} catch (Exception e) {
 					e.printStackTrace();
 					ApplicationLogger.log(Level.SEVERE, "Unable to access the method using reflection", e);
 					throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");

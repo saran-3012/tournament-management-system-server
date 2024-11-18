@@ -71,7 +71,10 @@ public class Router {
 					UserRoles allowedRoles[] = route.allowedRoles();
 					
 					
-					endPointMapping.put(new EndPoint(routeRootPath, routePath, routeMethod), new EndPointController(controller, method.getName(), routePath, allowedRoles));
+					endPointMapping.put(
+							new EndPoint(routeRootPath, routePath, routeMethod), 
+							new EndPointController(controller, method.getName(), routePath, allowedRoles)
+						);
 				}
 			}
 		}
@@ -128,41 +131,35 @@ public class Router {
 		catch (Exception e) {
 			 Throwable cause = e.getCause();
 			 if (cause != null) {
-				 cause.printStackTrace();
 			     ApplicationLogger.log(Level.WARNING, "Unable to create controller instance with reflection", cause);
 			 } 
 			 else {
-			     e.printStackTrace();
 			     ApplicationLogger.log(Level.WARNING, "Unable to create controller instance with reflection", e);
 			 }
-			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
+			 throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
 		}
 
 		ResponseData responseData = null;
 		
 		try {
-			responseData = (ResponseData) controllerClass.getDeclaredMethod(methodName, RequestData.class).invoke(controller, requestData);
+			responseData = (ResponseData) controllerClass.getDeclaredMethod(methodName, RequestData.class)
+														 .invoke(controller, requestData);
 		} 
 		catch(InvocationTargetException e) {
 		     Throwable cause = e.getCause();
-
 		     if(cause != null && cause instanceof ResponseException) {
-				 cause.printStackTrace();
 			     ApplicationLogger.log(Level.WARNING, "Unable to invoke the method with reflection", cause);
 		    	 throw (ResponseException) cause;
 		     }
-		     e.printStackTrace();
 		     ApplicationLogger.log(Level.WARNING, "Unable to invoke the method with reflection", e);
 	    	 throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
 		}
 		catch (IllegalAccessException | IllegalArgumentException | NoSuchMethodException | SecurityException e) {
 			 Throwable cause = e.getCause();
 			 if (cause != null) {
-				 cause.printStackTrace();
 			     ApplicationLogger.log(Level.WARNING, "Unable to invoke the method with reflection", cause);
 			 } 
 			 else {
-			     e.printStackTrace();
 			     ApplicationLogger.log(Level.WARNING, "Unable to invoke the method with reflection", e);
 			 }
 			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");

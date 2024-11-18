@@ -5,6 +5,7 @@ import java.util.List;
 import com.saran.tms.enums.JoinTypes;
 import com.saran.tms.enums.Operators;
 import com.saran.tms.enums.TableNames;
+import com.saran.tms.exceptions.DataBaseException;
 
 public class JoinEntry implements QueryEntry {
 	protected TableNames tableName1;
@@ -38,14 +39,16 @@ public class JoinEntry implements QueryEntry {
 		this.joinType = joinType;
 	}
 	
-	public JoinEntry(Operators logicalOperator, ConditionEntry conditionEntry) {
+	public JoinEntry(Operators logicalOperator, ConditionEntry conditionEntry) throws DataBaseException {
 		this.type = 1;
-		
+		if(logicalOperator != Operators.AND && logicalOperator != Operators.OR) {
+			throw new DataBaseException("Invalid logical operator");
+		}
 		this.logicalOperator = logicalOperator;
 		this.conditionEntry = conditionEntry;
 	}
 	
-	public String toQueryString() {
+	public String toQueryString() throws DataBaseException {
 		StringBuilder queryStringBuilder = new StringBuilder();
 		switch(type) {
 			case 0:
@@ -64,10 +67,13 @@ public class JoinEntry implements QueryEntry {
 				
 				break;
 			case 1:
-				queryStringBuilder.append(logicalOperator.getOperator())
-								  .append(' ')
-								  .append(conditionEntry.toQueryString());
-				
+				String conditionString = conditionEntry.toQueryString();
+				if(conditionString.length() > 0) {
+					queryStringBuilder.append(logicalOperator.getOperator())
+									  .append(' ')
+									  .append(conditionString);
+				}
+				break;
 			default:;
 		}
 		

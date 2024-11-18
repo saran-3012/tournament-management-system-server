@@ -8,9 +8,7 @@ import com.saran.tms.enums.Functions;
 import com.saran.tms.enums.JoinTypes;
 import com.saran.tms.enums.Operators;
 import com.saran.tms.enums.SortOrder;
-import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.TableNames;
-import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.pojo.ConditionEntry;
 import com.saran.tms.pojo.GroupEntry;
 import com.saran.tms.pojo.JoinConditionEntry;
@@ -126,15 +124,15 @@ private StringBuilder queryBuilder;
 		return this;
 	}
 	
-	public QueryBuilder tableField(TableNames tableName, String attribute) throws ResponseException {
+	public QueryBuilder tableField(TableNames tableName, String attribute) throws IllegalArgumentException {
 		if(!EntityValidator.validateEntity(tableName, attribute)) {
-			throw new ResponseException(StatusCodes.UNPROCESSABLE_CONTENT, "Field does not exists for this entity");
+			throw new IllegalArgumentException("Column " + attribute + " does not exists for table " + tableName.getTableName());
 		}
 		queryBuilder.append(tableName.getTableName()).append('.').append(attribute).append(' ');
 		return this;
 	}
 	
-	public QueryBuilder tableColumnFields(TableNames tableName, List<String> fieldNames) throws ResponseException {
+	public QueryBuilder tableColumnFields(TableNames tableName, List<String> fieldNames) throws IllegalArgumentException {
 		if(fieldNames == null || fieldNames.isEmpty()) {
 			return this;
 		}
@@ -151,7 +149,7 @@ private StringBuilder queryBuilder;
 		return this;
 	}
 	
-	public QueryBuilder tableColumnFields(TableColumnEntry tableColumnEntry) throws ResponseException {
+	public QueryBuilder tableColumnFields(TableColumnEntry tableColumnEntry) throws IllegalArgumentException {
 		if(tableColumnEntry == null) {
 			return this;
 		}
@@ -159,7 +157,7 @@ private StringBuilder queryBuilder;
 		return this.tableColumnFields(tableColumnEntry.getTableName(), tableColumnEntry.getColumnNames());
 	}
 	
-	public QueryBuilder tableFields(List<TableColumnEntry> tableColumnEntries) throws ResponseException {
+	public QueryBuilder tableFields(List<TableColumnEntry> tableColumnEntries) throws IllegalArgumentException {
 		if(tableColumnEntries == null || tableColumnEntries.isEmpty()) {
 			return this;
 		}
@@ -232,7 +230,7 @@ private StringBuilder queryBuilder;
 		return this;
 	}
 	
-	public QueryBuilder tableFieldsWithFunctions(TableColumnEntry tableColumnEntry, Map<GroupEntry, Functions> fieldFunctions) throws ResponseException {
+	public QueryBuilder tableFieldsWithFunctions(TableColumnEntry tableColumnEntry, Map<GroupEntry, Functions> fieldFunctions) throws IllegalArgumentException {
 		
 		if(fieldFunctions == null) {
 			return this.tableColumnFields(tableColumnEntry);
@@ -243,7 +241,7 @@ private StringBuilder queryBuilder;
 		return this;
 	}
 	
-	public QueryBuilder tableColumnsWithFunctions(List<TableColumnEntry> tableColumnEntries, Map<GroupEntry, Functions> fieldFunctions) throws ResponseException {
+	public QueryBuilder tableColumnsWithFunctions(List<TableColumnEntry> tableColumnEntries, Map<GroupEntry, Functions> fieldFunctions) throws IllegalArgumentException {
 		
 		if(tableColumnEntries == null || tableColumnEntries.isEmpty()) {
 			return this;

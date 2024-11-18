@@ -8,6 +8,7 @@
 </head>
 <body>
 	<%
+	    
 		request.getRequestDispatcher("/index.html").forward(request, response);
 	%>
 </body>

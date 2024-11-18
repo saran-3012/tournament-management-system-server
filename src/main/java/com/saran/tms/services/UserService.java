@@ -2,15 +2,22 @@ package com.saran.tms.services;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.saran.tms.dao.Dao;
+import com.saran.tms.enums.Functions;
 import com.saran.tms.enums.Operators;
+import com.saran.tms.enums.SortOrder;
 import com.saran.tms.enums.StatusCodes;
+import com.saran.tms.enums.TableNames;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.models.Model;
 import com.saran.tms.models.UserModel;
 import com.saran.tms.pojo.ConditionEntry;
+import com.saran.tms.pojo.GroupEntry;
+import com.saran.tms.pojo.OrderEntry;
 import com.saran.tms.routers.Params;
 import com.saran.tms.routers.QueryParams;
 import com.saran.tms.utils.Utilities;
@@ -98,6 +105,32 @@ public class UserService {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid User role");
 		}
 		
+		List<OrderEntry> sortEntries = new ArrayList<>();
+		
+		String sortTimeCreated = queryParams.get("sort_timecreated");
+		if(sortTimeCreated != null) {
+			try {
+				SortOrder sortOrder = SortOrder.getSortOrder(sortTimeCreated);
+				sortEntries.add(new OrderEntry(TableNames.USERS, "user_created_at", sortOrder));
+			}
+			catch(IllegalArgumentException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
+			}
+			catch(NullPointerException e) {}
+		}
+		
+		String sortUserName = queryParams.get("sort_username");
+		if(sortUserName != null) {
+			try {
+				SortOrder sortOrder = SortOrder.getSortOrder(sortUserName);
+				sortEntries.add(new OrderEntry(TableNames.USERS, "user_name", sortOrder));				
+			}
+			catch(IllegalArgumentException e) {
+				throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid sorting option");
+			}
+			catch(NullPointerException e) {}
+		}
+		
 		Integer limit;
 		Integer page;
 		
@@ -132,12 +165,26 @@ public class UserService {
 		List<Model>  users = userDao.findAll(
 				Arrays.asList("*"), 
 				conditions,
+				sortEntries,
 				limit,
 				offset
 			);
+		
+		
 		if(users == null || users.isEmpty()) {
 			users = new ArrayList<>();
 		}
+		
+		Boolean includeUsersCount = queryParams.getBoolean("include_userscount");
+		if(includeUsersCount != null && includeUsersCount) {
+			Map<GroupEntry, Functions> fieldFunctions = new HashMap<>();
+			fieldFunctions.put(new GroupEntry(TableNames.USERS, "*"), Functions.COUNT);
+			
+			List<List<Model>> userCountDetails = userDao.findAll(Arrays.asList("*"), conditions, fieldFunctions, null, null);
+			
+			users.add(0, userCountDetails.get(0).get(0));
+		}
+		
 		return users;
 	}
 

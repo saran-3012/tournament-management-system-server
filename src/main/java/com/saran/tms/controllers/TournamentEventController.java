@@ -1,7 +1,6 @@
 package com.saran.tms.controllers;
 
 import java.util.List;
-import java.util.Map;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -62,17 +61,21 @@ public class TournamentEventController implements Controller {
 			for(Model tournamentEventParticipant : tournamentEventParticipants) {
 				((TournamentEventParticipantModel) tournamentEventParticipant).setTournamentEventId(tournamentEventId);
 			}
-			newEventContestants = TournamentEventParticipantService.saveAllTournamentEventParticipant(tournamentEventParticipants);
+			if(tournamentEventParticipants != null && !tournamentEventParticipants.isEmpty()) {
+				newEventContestants = TournamentEventParticipantService.saveAllTournamentEventParticipants(tournamentEventParticipants);
+			}
 		}
 		else if(participationType == 1) {
 			List<Model> tournamentEventTeams = JsonModelParser.parse(reqBody.optJSONArray("eventTeamsData"), TournamentEventTeamModel.class);
 			for(Model tournamentEventTeam : tournamentEventTeams) {
 				((TournamentEventTeamModel) tournamentEventTeam).setTournamentEventId(tournamentEventId);
 			}
-			newEventContestants = TournamentEventTeamService.saveAllTournamentEventTeam(tournamentEventTeams);
+			if(tournamentEventTeams != null && !tournamentEventTeams.isEmpty()) {				
+				newEventContestants = TournamentEventTeamService.saveAllTournamentEventTeams(tournamentEventTeams);
+			}
 		}
 		
-		JSONArray newContestantsData = ModelJsonParser.parseAll(newEventContestants);
+		JSONArray newContestantsData = (newEventContestants != null)? ModelJsonParser.parseAll(newEventContestants) : new JSONArray();
 		
 		for(Object newContestantData : newContestantsData) {
 			Long winCount = (Long) ((JSONObject) newContestantData).remove("count");
@@ -188,5 +191,25 @@ public class TournamentEventController implements Controller {
 		
 		return new ResponseData(StatusCodes.OK, jsonData);
 		
+	}
+	
+	@Route(path="/orgs/:org_id/tournaments/:tournament_id/events/:event_id", method="PUT", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN})
+	public ResponseData updateTournamentEvent(RequestData request) throws ResponseException {
+		Params params = request.getParams();
+		
+		JSONObject reqBody = request.getBody();
+		TournamentEventModel tournamentEvent = (TournamentEventModel) JsonModelParser.parse(reqBody, TournamentEventModel.class);
+		tournamentEvent.setTournamentEventCreatedAt(null);
+		tournamentEvent.setTournamentEventId(null);
+		
+		TournamentEventModel updatedTournamentEvent = TournamentEventService.updateTournamentEventById(params, tournamentEvent);
+		
+		JSONObject tournamentEventData = ModelJsonParser.parse(updatedTournamentEvent);
+		
+		JSONObject jsonData = new JSONObject();
+		jsonData.put("data", tournamentEventData);
+		jsonData.put("message", "Event updated successfully");
+		
+		return new ResponseData(StatusCodes.ACCEPTED, jsonData);
 	}
 }

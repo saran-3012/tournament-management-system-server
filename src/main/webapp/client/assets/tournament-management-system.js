@@ -201,8 +201,9 @@ define('tournament-management-system/components/nav-bar', ['exports'], function 
             },
             logout: function logout() {
                 var router = this.get('router');
-                this.get('authenticationService').logout();
-                router.transitionTo('index');
+                this.get('authenticationService').logout(function () {
+                    return router.transitionTo('index');
+                });
             }
         }
     });
@@ -369,11 +370,41 @@ define('tournament-management-system/components/organization-navbar', ['exports'
         isLoggedIn: Ember.computed.readOnly('authenticationService.isLoggedIn'),
         userInfo: Ember.computed('authenticationService.userInfo', function () {
             return this.get('authenticationService').userInfo;
-        })
+        }),
 
+        init: function init() {
+            this._super.apply(this, arguments);
+
+            console.log(this.get('totalPages'));
+
+            this.set('filterOptions', [{ value: '', displayName: 'Filter', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'All' }, { value: 'unapprovedorganizations', displayName: 'Unapproved' }, { value: 'approvedorganizations', displayName: 'Approved' }, { value: 'bannedorganizations', displayName: 'Banned' }]);
+
+            this.set('sortOptions', [{ value: '', displayName: 'Sort', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'None' }, { value: 'timecreated', displayName: 'Time Created' }, { value: 'organizationname', displayName: 'Name' }, { value: 'startedyear', displayName: 'Year' }]);
+
+            this.set('orderOptions', [{ value: '', displayName: 'Order', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'None' }, { value: 'asc', displayName: 'Ascending' }, { value: 'desc', displayName: 'Descending' }]);
+        },
+
+        actions: {
+            prevPage: function prevPage() {
+                var currentPage = +this.get('currentPage');
+                if (currentPage > 0) {
+                    this.set('currentPage', currentPage - 1);
+                    this.get('searchOrganizations')({ currentPage: currentPage });
+                }
+            },
+            nextPage: function nextPage() {
+                var currentPage = +this.get('currentPage');
+                var totalPages = this.get('totalPages');
+
+                if (currentPage < totalPages - 1) {
+                    this.set('currentPage', currentPage + 1);
+                    this.get('searchOrganizations')({ currentPage: currentPage });
+                }
+            }
+        }
     });
 });
-define('tournament-management-system/components/organization-user-form', ['exports', 'tournament-management-system/utils/rsa-encrypter', 'tournament-management-system/utils/get-month-days-count', 'tournament-management-system/utils/hash-set', 'tournament-management-system/utils/sanitize-input', 'tournament-management-system/utils/date-time-to-mills', 'tournament-management-system/utils/form-validator'], function (exports, _rsaEncrypter, _getMonthDaysCount, _hashSet, _sanitizeInput, _dateTimeToMills, _formValidator3) {
+define('tournament-management-system/components/organization-user-form', ['exports', 'tournament-management-system/utils/rsa-encrypter', 'tournament-management-system/utils/check-date-valid', 'tournament-management-system/utils/hash-set', 'tournament-management-system/utils/sanitize-input', 'tournament-management-system/utils/date-time-to-mills', 'tournament-management-system/utils/form-validator', 'tournament-management-system/utils/check-characters-present', 'tournament-management-system/utils/password-validator'], function (exports, _rsaEncrypter, _checkDateValid, _hashSet, _sanitizeInput, _dateTimeToMills, _formValidator3, _checkCharactersPresent, _passwordValidator) {
     'use strict';
 
     Object.defineProperty(exports, "__esModule", {
@@ -433,22 +464,12 @@ define('tournament-management-system/components/organization-user-form', ['expor
                         return false;
                     }
 
-                    var _date$split$map = date.split("/").map(Number),
-                        _date$split$map2 = _slicedToArray(_date$split$map, 3),
-                        day = _date$split$map2[0],
-                        month = _date$split$map2[1],
-                        year = _date$split$map2[2];
-
-                    if (!month || month < 1 || month > 12) {
+                    if (!(0, _checkDateValid.default)(date)) {
                         return false;
                     }
 
-                    if (!day || day < 1 || day > (0, _getMonthDaysCount.default)(month, year)) {
-                        return false;
-                    }
-
-                    if (!year || year > new Date().getFullYear()) {
-                        return false;
+                    if ((0, _dateTimeToMills.default)(date) > Date.now()) {
+                        this.message = "You cannot choose future date";
                     }
 
                     return true;
@@ -502,70 +523,42 @@ define('tournament-management-system/components/organization-user-form', ['expor
             email: [{ required: true, message: "Email is required!" }, { pattern: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i, message: "Entered email is not valid" }],
             password: [{ required: true, message: "Password is required!" }, {
                 validator: function validator(password) {
-                    if (!password) {
-                        return false;
-                    }
-                    var lwrCse = 0;
-                    var uprCse = 0;
-                    var digits = 0;
-                    var splchs = 0;
-                    if (password.length < 8) {
-                        this.message = "Password must be atleast 8 character long";
-                        return false;
-                    }
-                    var _iteratorNormalCompletion2 = true;
-                    var _didIteratorError2 = false;
-                    var _iteratorError2 = undefined;
-
-                    try {
-                        for (var _iterator2 = password[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-                            var ch = _step2.value;
-
-                            if (ch >= 'a' && ch <= 'z') {
-                                lwrCse++;
-                            } else if (ch >= 'A' && ch <= 'Z') {
-                                uprCse++;
-                            } else if (ch >= '0' && ch <= '9') {
-                                digits++;
-                            } else {
-                                splchs++;
-                            }
-                        }
-                    } catch (err) {
-                        _didIteratorError2 = true;
-                        _iteratorError2 = err;
-                    } finally {
-                        try {
-                            if (!_iteratorNormalCompletion2 && _iterator2.return) {
-                                _iterator2.return();
-                            }
-                        } finally {
-                            if (_didIteratorError2) {
-                                throw _iteratorError2;
-                            }
-                        }
-                    }
-
-                    if (!lwrCse) {
-                        this.message = "Password must contain atleast one lower case character";
-                        return false;
-                    }
-                    if (!uprCse) {
-                        this.message = "Password must contain atleast one upper case character";
-                        return false;
-                    }
-                    if (!digits) {
-                        this.message = "Password must contain atleast one digit";
-                        return false;
-                    }
-                    if (!splchs) {
-                        this.message = "Password must contain atleast one special character";
+                    var msg = (0, _passwordValidator.default)(password);
+                    if (msg) {
+                        this.message = msg;
                         return false;
                     }
                     return true;
                 },
 
                 message: "Entered password is not valid"
+            }],
+            newPassword: [{ required: true, message: "New Password is required!" }, {
+                validator: function validator(password) {
+                    var msg = (0, _passwordValidator.default)(password);
+                    if (msg) {
+                        this.message = msg;
+                        return false;
+                    }
+                    return true;
+                },
+
+                message: "Entered New password is not valid"
+            }],
+            userAddress: [{
+                validator: function validator(uAddress) {
+                    if (!uAddress) return true;
+                    var vulnerableCharacters = new _hashSet.default('<', '>');
+
+                    if ((0, _checkCharactersPresent.default)(uAddress, vulnerableCharacters)) {
+                        this.message = vulnerableCharacters.toString() + ' are not allowed';
+                        return false;
+                    }
+
+                    return true;
+                },
+
+                message: 'Invalid organization address'
             }]
         },
         validationErrors: {},
@@ -575,11 +568,10 @@ define('tournament-management-system/components/organization-user-form', ['expor
         cleanUp: function cleanUp() {
             this.setErrors({});
         },
-        createNewUser: function createNewUser(thisRef, formData) {
 
-            console.log(thisRef);
-            console.log(thisRef.get('closeOrganizationUserForm'));
-            console.log(thisRef.get('refreshModel'));
+        genderOptions: [{ value: 0, displayName: 'Select Gender', selected: true }, { value: 1, displayName: 'Female' }, { value: 2, displayName: 'Male' }],
+        bloodGroupOptions: [{ value: '', displayName: 'Select Blood group', selected: true }, { value: 'A+', displayName: 'A+' }, { value: 'A-', displayName: 'A-' }, { value: 'B+', displayName: 'B+' }, { value: 'B-', displayName: 'B-' }, { value: 'AB+', displayName: 'AB+' }, { value: 'AB-', displayName: 'AB-' }, { value: 'O+', displayName: 'O+' }, { value: 'O-', displayName: 'O-' }],
+        createNewUser: function createNewUser(thisRef, formData) {
 
             var loaderService = thisRef.get('loaderService');
             var messageQueueService = thisRef.get('messageQueueService');
@@ -642,7 +634,148 @@ define('tournament-management-system/components/organization-user-form', ['expor
                 loaderService.setIsLoading(false);
             });
         },
-        updateExsistingUser: function updateExsistingUser(formData) {},
+        updateExsistingUser: function updateExsistingUser(thisRef, formData) {
+
+            var authenticationService = thisRef.get('authenticationService');
+            var loaderService = thisRef.get('loaderService');
+            var messageQueueService = thisRef.get('messageQueueService');
+            var config = thisRef.get('envService');
+
+            loaderService.setIsLoading(true);
+
+            var user = thisRef.get('user');
+
+            var userData = {};
+
+            var vulnerableCharacters = new _hashSet.default("<", ">");
+
+            var userName = (0, _sanitizeInput.default)(formData.get('userName'), vulnerableCharacters);
+            var dateOfBirth = (0, _dateTimeToMills.default)(formData.get('dateOfBirth'));
+            var phoneNumber = formData.get('phoneNumber');
+            var email = formData.get('email');
+            var gender = formData.get('gender');
+            var bloodGroup = formData.get('bloodGroup');
+
+            if (userName && user.userName !== userName) {
+                userData.userName = userName;
+            }
+            if (dateOfBirth && user.dateOfBirth !== user.dateOfBirth) {
+                userData.dateOfBirth = dateOfBirth;
+            }
+            if (phoneNumber && user.phoneNumber !== phoneNumber) {
+                userData.phoneNumber = phoneNumber;
+            }
+            if (email && user.email !== email) {
+                userData.email = email;
+            }
+            if (gender && user.gender !== gender) {
+                userData.gender = gender;
+            }
+            if (bloodGroup && user.bloodGroup !== bloodGroup) {
+                userData.bloodGroup = bloodGroup;
+            }
+
+            var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + user.organizationId + '/users/' + user.userId;
+
+            $.ajax({
+                method: 'PUT',
+                url: apiURL,
+                data: JSON.stringify(userData),
+                dataType: "json",
+                contentType: "application/json",
+                accepts: {
+                    json: "application/json"
+                },
+                processData: false,
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                cache: false
+            }).then(function (response, textStatus, jqXHR) {
+                if (thisRef.get('editProfileFormOpen')) {
+                    var updatedUserInfo = Object.assign({}, user, response.data);
+                    authenticationService._setUserInfo(updatedUserInfo, true);
+                    messageQueueService.addPopupMessage({
+                        message: "Profile updated successfully",
+                        level: 1
+                    });
+                } else {
+                    thisRef.get('refreshModel')();
+                    messageQueueService.addPopupMessage({
+                        message: "User details updated successfully",
+                        level: 1
+                    });
+                }
+                thisRef.get('closeOrganizationUserForm')();
+            }).catch(function (jqXHR, textStatus, errorThrown) {
+                messageQueueService.addPopupMessage({
+                    message: jqXHR.responseJSON.message,
+                    level: 3
+                });
+            }).always(function () {
+                loaderService.setIsLoading(false);
+            });
+        },
+        changePassword: function changePassword(thisRef, formData) {
+
+            var messageQueueService = thisRef.get('messageQueueService');
+            var userInfo = thisRef.get('user');
+            var config = thisRef.get('envService');
+
+            var oldPassword = formData.get('oldPassword');
+            var newPassword = formData.get('newPassword');
+
+            Promise.all([(0, _rsaEncrypter.default)(oldPassword).then(function (hashedOldPassword) {
+                return hashedOldPassword;
+            }).catch(function (err) {
+                throw new Error("Error in encryption");
+            }), (0, _rsaEncrypter.default)(newPassword).then(function (hashedNewPassword) {
+                return hashedNewPassword;
+            }).catch(function (err) {
+                throw new Error("Error in encryption");
+            })]).then(function (response) {
+                var _response = _slicedToArray(response, 2),
+                    hashedOldPassword = _response[0],
+                    hashedNewPassword = _response[1];
+
+                var apiURL = config.getEnv('BASE_API_URL') + '/auth/change-password';
+                var requestData = {
+                    oldPassword: hashedOldPassword,
+                    newPassword: hashedNewPassword
+                };
+
+                return $.ajax({
+                    method: 'POST',
+                    url: apiURL,
+                    data: JSON.stringify(requestData),
+                    dataType: "json",
+                    contentType: "application/json",
+                    accepts: {
+                        json: "application/json"
+                    },
+                    processData: false,
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    },
+                    cache: false
+                }).catch(function (err) {
+                    throw new Error(err.responseJSON.message);
+                });
+            }).then(function () {
+                messageQueueService.addPopupMessage({
+                    message: "Password Changed Successfully",
+                    level: 1
+                });
+                thisRef.get('closeOrganizationUserForm')();
+            }).catch(function (err) {
+                messageQueueService.addPopupMessage({
+                    message: err.message,
+                    level: 3
+                });
+            });
+        },
 
         actions: {
             handleOrganizationUserFormSubmit: function handleOrganizationUserFormSubmit(event) {
@@ -655,22 +788,42 @@ define('tournament-management-system/components/organization-user-form', ['expor
                     validationErrors = _formValidator2[0],
                     hasErrors = _formValidator2[1];
 
-                formData.set('email', formData.get('email').toLowerCase());
-                var password = formData.get('password');
-                var confirmPassword = formData.get('confirmPassword');
-                var isPasswordMatches = password === confirmPassword;
-                if (!isPasswordMatches) {
-                    validationErrors['confirmPassword'] = "Confirmation password not matching";
-                }
-                if (hasErrors || !isPasswordMatches) {
-                    this.setErrors(validationErrors);
-                    return;
-                }
+                var organizationUserFormType = +this.get('organizationUserFormType');
+                var editProfileFormOpen = this.get('editProfileFormOpen');
+                var changePasswordFormOpen = this.get('changePasswordFormOpen');
+                if (organizationUserFormType === 1 || organizationUserFormType === 2 || editProfileFormOpen) {
+                    formData.set('email', formData.get('email').toLowerCase());
+                    var password = formData.get('password');
+                    var confirmPassword = formData.get('confirmPassword');
+                    var isPasswordMatches = password === confirmPassword;
+                    if (!isPasswordMatches) {
+                        validationErrors['confirmPassword'] = "Confirmation password not matching";
+                    }
+                    if (hasErrors || !isPasswordMatches) {
+                        this.setErrors(validationErrors);
+                        return;
+                    }
 
-                var organizationUserFormType = this.get('organizationUserFormType');
-                if (organizationUserFormType === 1) {
-                    this.get('createNewUser')(this, formData);
-                } else if (organizationUserFormType === 2) {}
+                    if (organizationUserFormType === 1) {
+                        this.get('createNewUser')(this, formData);
+                    } else if (organizationUserFormType === 2 || editProfileFormOpen) {
+                        this.get('updateExsistingUser')(this, formData);
+                    }
+                } else if (changePasswordFormOpen) {
+                    var newPassword = formData.get('newPassword');
+                    var confirmNewPassword = formData.get('confirmNewPassword');
+
+                    var _isPasswordMatches = newPassword === confirmNewPassword;
+                    if (!_isPasswordMatches) {
+                        validationErrors['confirmNewPassword'] = "Confirmation password not matching";
+                    }
+                    if (hasErrors || !_isPasswordMatches) {
+                        this.setErrors(validationErrors);
+                        return;
+                    }
+
+                    this.get('changePassword')(this, formData);
+                }
             }
         }
     });
@@ -688,7 +841,34 @@ define('tournament-management-system/components/organization-user-navbar', ['exp
         isLoggedIn: Ember.computed.readOnly('authenticationService.isLoggedIn'),
         userInfo: Ember.computed('authenticationService.userInfo', function () {
             return this.get('authenticationService').userInfo;
-        })
+        }),
+
+        init: function init() {
+            this._super.apply(this, arguments);
+
+            this.set('sortOptions', [{ value: '', displayName: 'Sort', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'None' }, { value: 'timecreated', displayName: 'Time Created' }, { value: 'username', displayName: 'Name' }]);
+
+            this.set('orderOptions', [{ value: '', displayName: 'Order', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'None' }, { value: 'asc', displayName: 'Ascending' }, { value: 'desc', displayName: 'Descending' }]);
+        },
+
+        actions: {
+            prevPage: function prevPage() {
+                var currentPage = +this.get('currentPage');
+                if (currentPage > 0) {
+                    this.set('currentPage', currentPage - 1);
+                    this.get('searchOrganizationUsers')({ currentPage: currentPage });
+                }
+            },
+            nextPage: function nextPage() {
+                var currentPage = +this.get('currentPage');
+                var totalPages = this.get('totalPages');
+
+                if (currentPage < totalPages - 1) {
+                    this.set('currentPage', currentPage + 1);
+                    this.get('searchOrganizationUsers')({ currentPage: currentPage });
+                }
+            }
+        }
     });
 });
 define('tournament-management-system/components/participant-card', ['exports'], function (exports) {
@@ -894,11 +1074,12 @@ define('tournament-management-system/components/select-input', ['exports'], func
         init: function init() {
             this._super.apply(this, arguments);
             var defaultValue = this.get('defaultValue');
+            var selectedValue = this.get('selectedValue');
 
-            if (defaultValue) {
+            if (defaultValue || selectedValue) {
                 var options = this.get('options');
                 var updatedOptions = options.map(function (option) {
-                    option.selected = option.displayName === defaultValue;
+                    option.selected = option.displayName === defaultValue || option.value === selectedValue;
                     return option;
                 });
                 this.set('options', updatedOptions);
@@ -1328,12 +1509,33 @@ define('tournament-management-system/components/tournament-navbar', ['exports'],
         init: function init() {
             this._super.apply(this, arguments);
 
-            this.set('filterOptions', [{ value: '', displayName: 'Filter', selected: true, disabled: true, hidden: true }, { value: 'filter_tournamentstatus=0', displayName: 'Upcoming' }, { value: 'filter_tournamentstatus=1', displayName: 'Ongoing' }, { value: 'filter_tournamentstatus=2', displayName: 'Completed' }, { value: 'filter_tournamentstatus=3', displayName: 'Cancelled' }, { value: 'filter_userid=' + this.get('userInfo').userId, displayName: 'Registered' }, { value: 'filter_sporttype=0', displayName: 'Individual' }, { value: 'filter_sporttype=1', displayName: 'Team' }]);
+            this.set('filterOptions', [{ value: '', displayName: 'Filter', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'All' }, { value: 'upcomingtournaments', displayName: 'Upcoming' }, { value: 'ongoingtournaments', displayName: 'Ongoing' }, { value: 'completedtournaments', displayName: 'Completed' }, { value: 'cancelledtournaments', displayName: 'Cancelled' }, { value: 'registered', displayName: 'Registered' }, { value: 'individualsports', displayName: 'Individual' }, { value: 'teamsports', displayName: 'Team' }]);
 
-            this.set('sortOptions', [{ value: '', displayName: 'Sort', selected: true, disabled: true, hidden: true }, { value: 'sort_createdat', displayName: 'Time Created' }, { value: 'sort_registrationstart', displayName: 'Registration Start' }, { value: 'sort_registrationend', displayName: 'Registration End' }, { value: 'sort_tournamentdate', displayName: 'Tournament Date' }, { value: 'sort_tournamentname', displayName: 'Name' }, { value: 'sort_sportname', displayName: 'Sport Name' }]);
+            this.set('sortOptions', [{ value: '', displayName: 'Sort', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'None' }, { value: 'timecreated', displayName: 'Time Created' }, { value: 'registrationstart', displayName: 'Registration Start' }, { value: 'registrationend', displayName: 'Registration End' }, { value: 'tournamentdate', displayName: 'Tournament Date' }, { value: 'tournamentname', displayName: 'Name' }, { value: 'sportname', displayName: 'Sport Name' }]);
 
-            this.set('orderOptions', [{ value: '', displayName: 'Order', selected: true, disabled: true, hidden: true }, { value: 'asc', displayName: 'Ascending' }, { value: 'desc', displayName: 'Descending' }]);
+            this.set('orderOptions', [{ value: '', displayName: 'Order', selected: true, disabled: true, hidden: true }, { value: '', displayName: 'None' }, { value: 'asc', displayName: 'Ascending' }, { value: 'desc', displayName: 'Descending' }]);
+        },
+
+
+        actions: {
+            prevPage: function prevPage() {
+                var currentPage = +this.get('currentPage');
+                if (currentPage > 0) {
+                    this.set('currentPage', currentPage - 1);
+                    this.get('searchTournaments')({ currentPage: currentPage });
+                }
+            },
+            nextPage: function nextPage() {
+                var currentPage = +this.get('currentPage');
+                var totalPages = this.get('totalPages');
+
+                if (currentPage < totalPages - 1) {
+                    this.set('currentPage', currentPage + 1);
+                    this.get('searchTournaments')({ currentPage: currentPage });
+                }
+            }
         }
+
     });
 });
 define('tournament-management-system/components/tournament-participation-form', ['exports', 'tournament-management-system/utils/check-characters-present', 'tournament-management-system/utils/form-validator', 'tournament-management-system/utils/hash-set'], function (exports, _checkCharactersPresent, _formValidator3, _hashSet) {
@@ -1548,12 +1750,13 @@ define('tournament-management-system/components/tournament-schedule-card', ['exp
 
         // API calls
         fetchEventContestants: function fetchEventContestants(thisRef) {
+
             var userInfo = thisRef.get('userInfo');
             var schedule = thisRef.get('schedule');
             var tournament = thisRef.get('tournament');
             var config = thisRef.get('envService');
             var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + userInfo.organizationId + '/tournaments/' + schedule.tournamentId + '/events/' + schedule.tournamentEventId + '/contestants?exclude_limit=true';
-
+            var dataPersistanceService = thisRef.get('dataPersistanceService');
             var participationType = +tournament.sportType === 0 ? 'participants' : 'teams';
 
             $.ajax({
@@ -1566,6 +1769,9 @@ define('tournament-management-system/components/tournament-schedule-card', ['exp
                 }
             }).then(function (response, textStatus, jqXHR) {
                 thisRef.set(participationType, response.data);
+                console.log('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                dataPersistanceService.setData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType, response.data);
+                console.log(response.data);
             }).catch(function (err) {
                 thisRef.get('messageQueueService').addPopupMessage({
                     message: err.responseJSON.message,
@@ -1577,6 +1783,18 @@ define('tournament-management-system/components/tournament-schedule-card', ['exp
 
         // actions
         actions: {
+            openSchedulePopup: function openSchedulePopup(schedulePopupType) {
+                var schedule = this.get('schedule');
+                // if(schedulePopupType === 2){
+                //     const tournament = this.get('tournament');
+                //     const participationType = (+tournament.sportType === 0)? 'participants' : 'teams';
+                //     if(!this.get(participationType)){
+                //         this.get('fetchEventContestants')(this);
+                //     }
+                // }
+                this.get('setTournamentScheduleFormType')(schedulePopupType);
+                this.get('setSelectedSchedule')(schedule);
+            },
             toggleContestantsPanelOpen: function toggleContestantsPanelOpen() {
                 var tournament = this.get('tournament');
                 var participationType = +tournament.sportType === 0 ? 'participants' : 'teams';
@@ -1585,7 +1803,7 @@ define('tournament-management-system/components/tournament-schedule-card', ['exp
                 var isMembersPanelOpen = this.get('isContestantsPanelOpen');
                 if (isMembersPanelOpen && !this.get(participationType)) {
                     this.get('fetchEventContestants')(this);
-                };
+                }
             },
             reloadContestants: function reloadContestants() {
                 this.get('fetchEventContestants')(this);
@@ -1638,6 +1856,18 @@ define('tournament-management-system/components/tournament-schedule-form', ['exp
         };
     }();
 
+    function _toConsumableArray(arr) {
+        if (Array.isArray(arr)) {
+            for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) {
+                arr2[i] = arr[i];
+            }
+
+            return arr2;
+        } else {
+            return Array.from(arr);
+        }
+    }
+
     exports.default = Ember.Component.extend({
         // Component details
         tagName: 'section',
@@ -1658,6 +1888,25 @@ define('tournament-management-system/components/tournament-schedule-form', ['exp
         }),
 
         // Configs
+        init: function init() {
+            this._super.apply(this, arguments);
+            if (this.get('tournamentScheduleFormType') === 2) {
+
+                var tournament = this.get('tournament');
+                var schedule = this.get('selectedSchedule');
+                var participationType = +tournament.sportType === 0 ? 'participants' : 'teams';
+
+                var dataPersistanceService = this.get('dataPersistanceService');
+                var eventContestants = dataPersistanceService.getData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                if (eventContestants) {
+                    this.set('eventContestants', eventContestants);
+                } else {
+                    this.get('fetchEventContestants')(this);
+                }
+            }
+        },
+
+
         tournamentEventRoundOptions: [{ value: 0, displayName: 'Qualifiers' }, { value: 1, displayName: 'Play-Off' }, { value: 2, displayName: 'Quarter-Finals' }, { value: 3, displayName: 'Semi-Finals' }, { value: 4, displayName: 'Finals' }],
         validationConfig: {
             tournamentEventDate: [{ required: true, message: "Event date is required!" }, {
@@ -1666,7 +1915,15 @@ define('tournament-management-system/components/tournament-schedule-form', ['exp
                         return false;
                     }
 
-                    return (0, _checkDateValid.default)(date);
+                    if (!(0, _checkDateValid.default)(date)) {
+                        return false;
+                    }
+
+                    if ((0, _dateTimeToMills.default)(date) < Date.now()) {
+                        this.message = "You cannot choose past date";
+                    }
+
+                    return true;
                 },
 
                 message: "Provided date is not valid format (dd/mm/yyyy)"
@@ -1684,7 +1941,8 @@ define('tournament-management-system/components/tournament-schedule-form', ['exp
                 },
 
                 message: 'Invalid event venue'
-            }]
+            }],
+            tournamentEventWinnerId: [{ required: true, message: "Must choose one winner" }]
         },
         validationErrors: {},
         setErrors: function setErrors(validationErrors) {
@@ -1693,6 +1951,37 @@ define('tournament-management-system/components/tournament-schedule-form', ['exp
 
 
         // Calls and Actions
+
+        fetchEventContestants: function fetchEventContestants(thisRef) {
+
+            var userInfo = thisRef.get('userInfo');
+            var schedule = thisRef.get('selectedSchedule');
+            var tournament = thisRef.get('tournament');
+            var config = thisRef.get('envService');
+            var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + userInfo.organizationId + '/tournaments/' + schedule.tournamentId + '/events/' + schedule.tournamentEventId + '/contestants?exclude_limit=true';
+            var dataPersistanceService = thisRef.get('dataPersistanceService');
+            var participationType = +tournament.sportType === 0 ? 'participants' : 'teams';
+
+            $.ajax({
+                method: 'GET',
+                url: apiURL,
+                dataType: "json",
+                contentType: "application/json",
+                accepts: {
+                    json: "application/json"
+                }
+            }).then(function (response, textStatus, jqXHR) {
+                thisRef.set('eventContestants', response.data);
+                console.log('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                dataPersistanceService.setData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType, response.data);
+                console.log(response.data);
+            }).catch(function (err) {
+                thisRef.get('messageQueueService').addPopupMessage({
+                    message: err.responseJSON.message,
+                    level: 3
+                });
+            });
+        },
         scheduleEvent: function scheduleEvent(thisRef, formData) {
 
             var messageQueueService = thisRef.get('messageQueueService');
@@ -1756,34 +2045,405 @@ define('tournament-management-system/components/tournament-schedule-form', ['exp
                 });
             });
         },
+        updateEvent: function updateEvent(thisRef, formData) {
+
+            var dataPersistanceService = thisRef.get('dataPersistanceService');
+            var tournament = thisRef.get('tournament');
+            var schedule = thisRef.get('selectedSchedule');
+
+            var participationType = +tournament.sportType === 0 ? 'participants' : 'teams';
+
+            var eventContestants = thisRef.get('eventContestants');
+
+            var messageQueueService = thisRef.get('messageQueueService');
+
+            var userInfo = thisRef.get('userInfo');
+            var orgId = userInfo.organizationId;
+            var config = thisRef.get('envService');
+            var baseApiUrl = config.getEnv('BASE_API_URL');
+
+            var tournamentEventDate = formData.get('tournamentEventDate');
+            tournamentEventDate = tournamentEventDate ? (0, _dateTimeToMills.default)(formData.get('tournamentEventDate')) : undefined;
+            var tournamentEventVenue = formData.get('tournamentEventVenue');
+            var tournamentEventRound = formData.get('tournamentEventRound');
+            var tournamentEventStatus = formData.get('tournamentEventStatus');
+            var tournamentEventWinnerId = formData.get('tournamentEventWinnerId');
+
+            var updatedEventData = {};
+
+            if (tournamentEventDate && tournamentEventDate !== schedule.tournamentEventDate) {
+                updatedEventData.tournamentEventDate = tournamentEventDate;
+            }
+            if (tournamentEventVenue && tournamentEventVenue !== schedule.tournamentEventVenue) {
+                updatedEventData.tournamentEventVenue = tournamentEventVenue;
+            }
+            if (tournamentEventRound !== null && !isNaN(tournamentEventRound) && tournamentEventRound !== schedule.tournamentEventRound) {
+                updatedEventData.tournamentEventRound = +tournamentEventRound;
+            }
+            if (tournamentEventStatus !== null && !isNaN(tournamentEventStatus) && tournamentEventStatus !== schedule.tournamentEventStatus) {
+                updatedEventData.tournamentEventStatus = +tournamentEventStatus;
+            }
+            if (tournamentEventWinnerId !== null && !isNaN(tournamentEventWinnerId) && tournamentEventWinnerId !== schedule.tournamentEventWinnerId) {
+                updatedEventData.tournamentEventWinnerId = +tournamentEventWinnerId;
+            }
+
+            var apiCalls = [];
+
+            if (Object.keys(updatedEventData).length > 0) {
+
+                var updateEventApiUrl = baseApiUrl + '/api/v1/orgs/' + orgId + '/tournaments/' + tournament.tournamentId + '/events/' + schedule.tournamentEventId;
+
+                var updateEventApiCall = $.ajax({
+                    method: 'PUT',
+                    url: updateEventApiUrl,
+                    data: JSON.stringify(updatedEventData),
+                    dataType: "json",
+                    contentType: "application/json",
+                    accepts: {
+                        json: "application/json"
+                    },
+                    processData: false
+                }).then(function (data, textStatus, jqXHR) {}).catch(function (err) {
+
+                    throw new Error(err.responseJSON.message);
+                });
+
+                apiCalls.push(updateEventApiCall);
+            }
+
+            switch (+tournament.sportType) {
+                case 0:
+                    var eventParticipantsData = formData.getAll('participantId');
+                    if (eventParticipantsData.length > 0) {
+                        var newParticipantsData = [];
+
+                        var _iteratorNormalCompletion = true;
+                        var _didIteratorError = false;
+                        var _iteratorError = undefined;
+
+                        try {
+                            for (var _iterator = eventParticipantsData[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                                var pId = _step.value;
+
+                                var isPresent = false;
+                                var _iteratorNormalCompletion3 = true;
+                                var _didIteratorError3 = false;
+                                var _iteratorError3 = undefined;
+
+                                try {
+                                    for (var _iterator3 = eventContestants[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+                                        var _participant = _step3.value;
+
+                                        if (_participant.participantId === +pId) {
+                                            isPresent = true;
+                                            break;
+                                        }
+                                    }
+                                } catch (err) {
+                                    _didIteratorError3 = true;
+                                    _iteratorError3 = err;
+                                } finally {
+                                    try {
+                                        if (!_iteratorNormalCompletion3 && _iterator3.return) {
+                                            _iterator3.return();
+                                        }
+                                    } finally {
+                                        if (_didIteratorError3) {
+                                            throw _iteratorError3;
+                                        }
+                                    }
+                                }
+
+                                if (!isPresent) {
+                                    newParticipantsData.push({ participantId: pId });
+                                }
+                            }
+                        } catch (err) {
+                            _didIteratorError = true;
+                            _iteratorError = err;
+                        } finally {
+                            try {
+                                if (!_iteratorNormalCompletion && _iterator.return) {
+                                    _iterator.return();
+                                }
+                            } finally {
+                                if (_didIteratorError) {
+                                    throw _iteratorError;
+                                }
+                            }
+                        }
+
+                        if (newParticipantsData.length > 0) {
+                            var newParticipantsApiUrl = baseApiUrl + '/api/v1/orgs/' + orgId + '/tournaments/' + tournament.tournamentId + '/events/' + schedule.tournamentEventId + '/participants';
+                            var newParticipantsApiCall = $.ajax({
+                                method: 'POST',
+                                url: newParticipantsApiUrl,
+                                data: JSON.stringify({ tournamentEventParticipants: newParticipantsData }),
+                                dataType: "json",
+                                contentType: "application/json",
+                                accepts: {
+                                    json: "application/json"
+                                },
+                                processData: false
+                            }).then(function () {
+                                dataPersistanceService.removeData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                            }).catch(function (err) {
+                                throw new Error(err.responseJSON.message);
+                            });
+
+                            apiCalls.push(newParticipantsApiCall);
+                        }
+
+                        var removedParticipantsData = [];
+                        var eventParticipantsSet = new (Function.prototype.bind.apply(_hashSet.default, [null].concat(_toConsumableArray(eventParticipantsData))))();
+                        var _iteratorNormalCompletion2 = true;
+                        var _didIteratorError2 = false;
+                        var _iteratorError2 = undefined;
+
+                        try {
+                            for (var _iterator2 = eventContestants[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                                var participant = _step2.value;
+
+                                if (!eventParticipantsSet.contains(participant.participantId)) {
+                                    removedParticipantsData.push(participant.participantId);
+                                }
+                            }
+                        } catch (err) {
+                            _didIteratorError2 = true;
+                            _iteratorError2 = err;
+                        } finally {
+                            try {
+                                if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                    _iterator2.return();
+                                }
+                            } finally {
+                                if (_didIteratorError2) {
+                                    throw _iteratorError2;
+                                }
+                            }
+                        }
+
+                        if (removedParticipantsData.length > 0) {
+                            var removedParticipantIds = removedParticipantsData.join(',');
+                            var removedParticipantsApiUrl = baseApiUrl + '/api/v1/orgs/' + orgId + '/tournaments/' + tournament.tournamentId + '/events/' + schedule.tournamentEventId + '/participants/' + removedParticipantIds;
+                            var removeParticipantsApiCall = $.ajax({
+                                method: 'DELETE',
+                                url: removedParticipantsApiUrl,
+                                dataType: "json",
+                                contentType: "application/json",
+                                accepts: {
+                                    json: "application/json"
+                                },
+                                processData: false
+                            }).then(function () {
+                                dataPersistanceService.removeData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                            }).catch(function (err) {
+                                throw new Error(err.responseJSON.message);
+                            });
+
+                            apiCalls.push(removeParticipantsApiCall);
+                        }
+                    }
+
+                    break;
+                case 1:
+                    var eventTeamsData = formData.getAll('teamId');
+                    if (eventTeamsData.length > 0) {
+                        var newTeamsData = [];
+
+                        var _iteratorNormalCompletion4 = true;
+                        var _didIteratorError4 = false;
+                        var _iteratorError4 = undefined;
+
+                        try {
+                            for (var _iterator4 = eventTeamsData[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                                var tId = _step4.value;
+
+                                var _isPresent = false;
+                                var _iteratorNormalCompletion6 = true;
+                                var _didIteratorError6 = false;
+                                var _iteratorError6 = undefined;
+
+                                try {
+                                    for (var _iterator6 = eventContestants[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+                                        var _team = _step6.value;
+
+                                        if (_team.teamId === +tId) {
+                                            _isPresent = true;
+                                            break;
+                                        }
+                                    }
+                                } catch (err) {
+                                    _didIteratorError6 = true;
+                                    _iteratorError6 = err;
+                                } finally {
+                                    try {
+                                        if (!_iteratorNormalCompletion6 && _iterator6.return) {
+                                            _iterator6.return();
+                                        }
+                                    } finally {
+                                        if (_didIteratorError6) {
+                                            throw _iteratorError6;
+                                        }
+                                    }
+                                }
+
+                                if (!_isPresent) {
+                                    newTeamsData.push({ teamId: tId });
+                                }
+                            }
+                        } catch (err) {
+                            _didIteratorError4 = true;
+                            _iteratorError4 = err;
+                        } finally {
+                            try {
+                                if (!_iteratorNormalCompletion4 && _iterator4.return) {
+                                    _iterator4.return();
+                                }
+                            } finally {
+                                if (_didIteratorError4) {
+                                    throw _iteratorError4;
+                                }
+                            }
+                        }
+
+                        if (newTeamsData.length > 0) {
+                            var newTeamsApiUrl = baseApiUrl + '/api/v1/orgs/' + orgId + '/tournaments/' + tournament.tournamentId + '/events/' + schedule.tournamentEventId + '/teams';
+                            var newTeamsApiCall = $.ajax({
+                                method: 'POST',
+                                url: newTeamsApiUrl,
+                                data: JSON.stringify({ tournamentEventTeams: newTeamsData }),
+                                dataType: "json",
+                                contentType: "application/json",
+                                accepts: {
+                                    json: "application/json"
+                                },
+                                processData: false
+                            }).then(function () {
+                                dataPersistanceService.removeData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                            }).catch(function (err) {
+                                throw new Error(err.responseJSON.message);
+                            });
+
+                            apiCalls.push(newTeamsApiCall);
+                        }
+
+                        var removedTeamsData = [];
+                        var eventTeamsSet = new (Function.prototype.bind.apply(_hashSet.default, [null].concat(_toConsumableArray(eventTeamsData))))();
+                        var _iteratorNormalCompletion5 = true;
+                        var _didIteratorError5 = false;
+                        var _iteratorError5 = undefined;
+
+                        try {
+                            for (var _iterator5 = eventContestants[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+                                var team = _step5.value;
+
+                                if (!eventTeamsSet.contains(team.teamId)) {
+                                    removedTeamsData.push(team.teamId);
+                                }
+                            }
+                        } catch (err) {
+                            _didIteratorError5 = true;
+                            _iteratorError5 = err;
+                        } finally {
+                            try {
+                                if (!_iteratorNormalCompletion5 && _iterator5.return) {
+                                    _iterator5.return();
+                                }
+                            } finally {
+                                if (_didIteratorError5) {
+                                    throw _iteratorError5;
+                                }
+                            }
+                        }
+
+                        if (removedTeamsData.length > 0) {
+                            var removedTeamIds = removedTeamsData.join(',');
+                            var removedTeamsApiUrl = baseApiUrl + '/api/v1/orgs/' + orgId + '/tournaments/' + tournament.tournamentId + '/events/' + schedule.tournamentEventId + '/teams/' + removedTeamIds;
+                            var removeTeamsApiCall = $.ajax({
+                                method: 'DELETE',
+                                url: removedTeamsApiUrl,
+                                dataType: "json",
+                                contentType: "application/json",
+                                accepts: {
+                                    json: "application/json"
+                                },
+                                processData: false
+                            }).then(function () {
+                                dataPersistanceService.removeData('tournamenteventschedule:' + schedule.tournamentEventId + ',' + participationType);
+                            }).catch(function (err) {
+                                throw new Error(err.responseJSON.message);
+                            });
+
+                            apiCalls.push(removeTeamsApiCall);
+                        }
+                    }
+
+                    break;
+                default:
+                    messageQueueService.addPopupMessage({
+                        message: "Something went wrong",
+                        level: 3
+                    });
+                    return;
+            }
+
+            Promise.all(apiCalls).then(function () {
+                thisRef.get('refreshModel')();
+                messageQueueService.addPopupMessage({
+                    message: "Event updated successfully",
+                    level: 1
+                });
+            }).catch(function (err) {
+                messageQueueService.addPopupMessage({
+                    message: err.responseJSON.message,
+                    level: 3
+                });
+            });
+        },
         submit: function submit(event) {
             event.preventDefault();
 
+            var tournamentScheduleFormType = +this.get('tournamentScheduleFormType');
+
             var formData = new FormData(event.target);
 
-            var _formValidator = (0, _formValidator3.default)(formData, this.get('validationConfig')),
-                _formValidator2 = _slicedToArray(_formValidator, 2),
-                validationErrors = _formValidator2[0],
-                hasErrors = _formValidator2[1];
+            if (tournamentScheduleFormType === 1 || tournamentScheduleFormType === 2) {
+                var _formValidator = (0, _formValidator3.default)(formData, this.get('validationConfig')),
+                    _formValidator2 = _slicedToArray(_formValidator, 2),
+                    validationErrors = _formValidator2[0],
+                    hasErrors = _formValidator2[1];
 
-            var tournament = this.get('tournament');
-            var participantIdType = +tournament.sportType === 0 ? 'participantId' : 'teamId';
-            var selectedContestants = formData.getAll(participantIdType);
-            var isMinimumContestantSelected = selectedContestants.length > 1;
-            if (!isMinimumContestantSelected) {
-                validationErrors[participantIdType] = 'Atleast select 2 ' + (+tournament.sportType === 0 ? 'participants' : 'teams');
+                var tournament = this.get('tournament');
+                var participantIdType = +tournament.sportType === 0 ? 'participantId' : 'teamId';
+                var selectedContestants = formData.getAll(participantIdType);
+                var isMinimumContestantSelected = selectedContestants.length > 1;
+                if (!isMinimumContestantSelected) {
+                    validationErrors[participantIdType] = 'Atleast select 2 ' + (+tournament.sportType === 0 ? 'participants' : 'teams');
+                }
+
+                if (hasErrors || !isMinimumContestantSelected) {
+                    this.setErrors(validationErrors);
+                    return;
+                }
             }
 
-            if (hasErrors || !isMinimumContestantSelected) {
-                this.setErrors(validationErrors);
-                return;
-            }
-            switch (+this.get('tournamentScheduleFormType')) {
+            switch (tournamentScheduleFormType) {
                 case 1:
                     this.get('scheduleEvent')(this, formData);
                     break;
                 case 2:
+                    this.get('updateEvent')(this, formData);
+                    break;
                 case 3:
+                    var customFormData = new FormData();
+                    customFormData.append('tournamentEventStatus', +this.get('selectedSchedule').tournamentEventStatus === 2 ? '0' : '2');
+                    this.get('updateEvent')(this, customFormData);
+                    break;
+                case 4:
+                    formData.set('tournamentEventStatus', '1');
+                    this.get('updateEvent')(this, formData);
+                    break;
                 default:
                     this.get('messageQueueService').addPopupMessage({
                         message: "Invalid operation",
@@ -1801,9 +2461,48 @@ define('tournament-management-system/components/user-card', ['exports'], functio
         value: true
     });
     exports.default = Ember.Component.extend({
+
+        // Tag Config
         tagName: 'div',
         classNames: ['user-card'],
-        user: {}
+
+        // Services
+        authenticationService: Ember.inject.service(),
+        userInfo: Ember.computed('authenticationService.userInfo', function () {
+            return this.get('authenticationService').userInfo;
+        }),
+
+        // States
+        user: {},
+        isMenuOpen: false,
+        toggleMenu: function toggleMenu(event, thisRef) {
+            var clickEventListener = function clickEventListener(event) {
+                if (thisRef.get('isMenuOpen')) {
+                    document.removeEventListener('click', clickEventListener);
+                    thisRef.set('isMenuOpen', false);
+                } else {
+                    setTimeout(function () {
+                        document.addEventListener('click', clickEventListener);
+                    }, 0);
+                    thisRef.set('isMenuOpen', true);
+                }
+            };
+            clickEventListener(event);
+        },
+
+        actions: {
+            handleMenuVisibility: function handleMenuVisibility(event) {
+                this.get('toggleMenu')(event, this);
+            },
+            selectAndOpenEditForm: function selectAndOpenEditForm() {
+                this.get('setSelectedUser')();
+                this.get('setOrganizationUserFormType')(2);
+            },
+            viewUserDetails: function viewUserDetails() {
+                this.get('setSelectedUser')();
+                this.get('setOrganizationUserFormType')(3);
+            }
+        }
     });
 });
 define('tournament-management-system/components/welcome-page', ['exports', 'ember-welcome-page/components/welcome-page'], function (exports, _welcomePage) {
@@ -2041,6 +2740,26 @@ define('tournament-management-system/controllers/organizations/index', ['exports
             this.set('organizations', updatedOrgs);
         },
 
+
+        totalPages: Ember.computed('limit', 'organizationsCount', function () {
+            var limit = this.get('limit');
+            var organizationUsersCount = this.get('organizationsCount');
+            return Math.ceil(organizationUsersCount / limit);
+        }),
+
+        // clean up
+        cleanUp: function cleanUp() {
+            this.set('filterValue', '');
+            this.set('searchValue', '');
+            this.set('sortValue', '');
+            this.set('orderValue', '');
+            this.set('currentPage', 0);
+
+            this.set('organizationsCount', undefined);
+            this.set('organizations', []);
+        },
+
+
         actions: {
             refreshModel: function refreshModel() {
                 this.get('target').router.getHandler('organizations.index').refresh();
@@ -2071,34 +2790,23 @@ define('tournament-management-system/controllers/organizations/index', ['exports
                     console.log("error", err);
                 });
             },
-            searchOrganizations: function searchOrganizations(searchValue) {
-                var _this2 = this;
+            searchOrganizations: function searchOrganizations(searchConfig) {
 
-                var userInfo = this.get('userInfo');
+                var searchValue = this.get('searchValue');
+                var filterValue = this.get('filterValue');
+                var sortValue = this.get('sortValue');
+                var orderValue = this.get('orderValue');
+                var page = searchConfig.hasOwnProperty('currentPage') ? this.get('currentPage') : undefined;
 
-                if (+userInfo.role !== 2) {
-                    this.transitionTo('index');
-                    return;
-                }
+                var queryParams = {
+                    search: searchValue || undefined,
+                    filter: filterValue || undefined,
+                    sort: sortValue || undefined,
+                    order: orderValue || undefined,
+                    page: page ? +page + 1 : undefined
+                };
 
-                var config = this.get('envService');
-                var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs?filter_orgname=' + searchValue;
-
-                $.ajax({
-                    method: "GET",
-                    url: apiURL,
-                    accepts: {
-                        'json': 'application/json'
-                    },
-                    dataType: 'json'
-                }).then(function (response, textStatus, xqXHR) {
-                    _this2.set('organizations', response.data);
-                }).catch(function (err) {
-                    _this2.get('messageQueueService').addPopupMessage({
-                        message: err.message,
-                        level: 4
-                    });
-                });
+                this.transitionToRoute({ queryParams: queryParams });
             }
         }
     });
@@ -2121,6 +2829,26 @@ define('tournament-management-system/controllers/organizations/organization', ['
         isOrganizationFormOpen: false,
         organizationUserFormType: 0,
         selectedUser: {},
+
+        totalPages: Ember.computed('limit', 'organizationUsersCount', function () {
+            var limit = this.get('limit');
+            var organizationUsersCount = this.get('organizationUsersCount');
+            return Math.ceil(organizationUsersCount / limit);
+        }),
+
+        // clean up
+        cleanUp: function cleanUp() {
+            this.set('filterValue', '');
+            this.set('searchValue', '');
+            this.set('sortValue', '');
+            this.set('orderValue', '');
+            this.set('currentPage', 0);
+
+            this.set('organizationUsersCount', undefined);
+            this.set('users', []);
+        },
+
+
         actions: {
             refreshModel: function refreshModel() {
                 this.get('target').router.getHandler('organizations.organization').refresh();
@@ -2134,39 +2862,38 @@ define('tournament-management-system/controllers/organizations/organization', ['
             setSelectedUser: function setSelectedUser(user) {
                 this.set('selectedUser', user);
             },
-            searchOrganizationUsers: function searchOrganizationUsers(searchValue) {
-                var _this = this;
+            searchOrganizationUsers: function searchOrganizationUsers(searchConfig) {
 
                 var userInfo = this.get('userInfo');
 
-                var orgId = null;
+                var orgId = +userInfo.role === 2 ? this.get('organization').organizationId : userInfo.organizationId;
 
-                orgId = +userInfo.role === 2 ? this.get('organization').organizationId : userInfo.organizationId;
-
-                if ((orgId === null || orgId === undefined) && +userInfo.role !== 2) {
-                    this.get('authenticationService').logout();
-                    this.transitionTo('login');
-                    return;
+                if (orgId === null || orgId === undefined) {
+                    if (+userInfo.role === 2) {
+                        this.transitionTo('organizations');
+                        return;
+                    } else {
+                        this.get('authenticationService').logout();
+                        this.transitionTo('login');
+                        return;
+                    }
                 }
 
-                var config = this.get('envService');
-                var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + orgId + '/users?filter_username=' + searchValue;
+                var searchValue = this.get('searchValue');
+                var filterValue = this.get('filterValue');
+                var sortValue = this.get('sortValue');
+                var orderValue = this.get('orderValue');
+                var page = searchConfig.hasOwnProperty('currentPage') ? this.get('currentPage') : undefined;
 
-                $.ajax({
-                    method: "GET",
-                    url: apiURL,
-                    accepts: {
-                        'json': 'application/json'
-                    },
-                    dataType: 'json'
-                }).then(function (response, textStatus, xqXHR) {
-                    _this.set('users', response.data);
-                }).catch(function (err) {
-                    _this.get('messageQueueService').addPopupMessage({
-                        message: err.message,
-                        level: 4
-                    });
-                });
+                var queryParams = {
+                    search: searchValue || undefined,
+                    filter: filterValue || undefined,
+                    sort: sortValue || undefined,
+                    order: orderValue || undefined,
+                    page: page ? +page + 1 : undefined
+                };
+
+                this.transitionToRoute({ queryParams: queryParams });
             },
             updateOrganizationDetails: function updateOrganizationDetails(formData) {
                 var organization = this.get('organization');
@@ -2194,6 +2921,37 @@ define('tournament-management-system/controllers/organizations/organization', ['
                 }).catch(function (err) {
                     console.log(err);
                 });
+            }
+        }
+    });
+});
+define('tournament-management-system/controllers/profile', ['exports'], function (exports) {
+    'use strict';
+
+    Object.defineProperty(exports, "__esModule", {
+        value: true
+    });
+    exports.default = Ember.Controller.extend({
+
+        editProfileFormOpen: false,
+        changePasswordFormOpen: false,
+
+        actions: {
+            refreshModel: function refreshModel() {},
+            goBack: function goBack() {
+                history.back();
+            },
+            setEditProfileFromOpen: function setEditProfileFromOpen(value) {
+                if (value) {
+                    this.set('changePasswordFormOpen', false);
+                }
+                this.set('editProfileFormOpen', !!value);
+            },
+            setChangePasswordFormOpen: function setChangePasswordFormOpen(value) {
+                if (value) {
+                    this.set('editProfileFormOpen', false);
+                }
+                this.set('changePasswordFormOpen', !!value);
             }
         }
     });
@@ -2489,6 +3247,7 @@ define('tournament-management-system/controllers/tournaments/index', ['exports']
         value: true
     });
     exports.default = Ember.Controller.extend({
+        // Services
         messageQueueService: Ember.inject.service(),
         envService: Ember.inject.service(),
         authenticationService: Ember.inject.service(),
@@ -2497,14 +3256,28 @@ define('tournament-management-system/controllers/tournaments/index', ['exports']
             var userInfo = this.get('authenticationService').userInfo;
             return userInfo || {};
         }),
+
+        // State
+        totalPages: Ember.computed('limit', 'tournamentsCount', function () {
+            var limit = this.get('limit');
+            var tournamentsCount = this.get('tournamentsCount');
+            return Math.ceil(tournamentsCount / limit);
+        }),
         isCancelPopupOpen: false,
         selectedTournament: {},
 
-        searchValue: '',
-        filterValue: '',
-        sortValue: '',
-        orderValue: 'asc',
-        tournamentPage: 0,
+        // clean up
+        cleanUp: function cleanUp() {
+            this.set('filterValue', '');
+            this.set('searchValue', '');
+            this.set('sortValue', '');
+            this.set('orderValue', '');
+            this.set('currentPage', 0);
+
+            this.set('tournamentsCount', undefined);
+            this.set('tournaments', []);
+        },
+
         actions: {
             setIsCancelPopupOpen: function setIsCancelPopupOpen(value) {
                 this.set('isCancelPopupOpen', value);
@@ -2513,7 +3286,6 @@ define('tournament-management-system/controllers/tournaments/index', ['exports']
                 this.set('selectedTournament', tournament);
             },
             searchTournaments: function searchTournaments(searchConfig) {
-                var _this = this;
 
                 var orgId = this.get('userInfo').organizationId;
 
@@ -2523,52 +3295,24 @@ define('tournament-management-system/controllers/tournaments/index', ['exports']
                     return;
                 }
 
-                var config = this.get('envService');
-                var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + orgId + '/tournaments';
-
                 var searchValue = this.get('searchValue');
                 var filterValue = this.get('filterValue');
                 var sortValue = this.get('sortValue');
                 var orderValue = this.get('orderValue');
+                var page = searchConfig.hasOwnProperty('currentPage') ? this.get('currentPage') : undefined;
 
-                var queryArray = [];
+                var queryParams = {
+                    search: searchValue || undefined,
+                    filter: filterValue || undefined,
+                    sort: sortValue || undefined,
+                    order: orderValue || undefined,
+                    page: page ? +page + 1 : undefined
+                };
 
-                if (searchValue) {
-                    queryArray.push('filter_tournament=' + searchValue);
-                }
-
-                if (filterValue) {
-                    queryArray.push(filterValue);
-                }
-
-                if (sortValue) {
-                    queryArray.push(sortValue + '=' + (orderValue || 'asc'));
-                }
-
-                var queryString = queryArray.join('&');
-
-                if (queryString) {
-                    apiURL += '?' + queryString;
-                }
-
-                $.ajax({
-                    method: "GET",
-                    url: apiURL,
-                    accepts: {
-                        'json': 'application/json'
-                    },
-                    dataType: 'json'
-                }).then(function (response, textStatus, xqXHR) {
-                    _this.set('tournaments', response.data);
-                }).catch(function (err) {
-                    _this.get('messageQueueService').addPopupMessage({
-                        message: err.message,
-                        level: 4
-                    });
-                });
+                this.transitionToRoute({ queryParams: queryParams });
             },
             cancelTournament: function cancelTournament() {
-                var _this2 = this;
+                var _this = this;
 
                 var messageQueueService = this.get('messageQueueService');
                 var tournament = this.get('selectedTournament');
@@ -2612,8 +3356,8 @@ define('tournament-management-system/controllers/tournaments/index', ['exports']
                     },
                     processData: false
                 }).then(function (data, textStatus, jqXHR) {
-                    _this2.get('target').router.getHandler('tournaments.index').refresh();
-                    _this2.set('isCancelPopupOpen', false);
+                    _this.get('target').router.getHandler('tournaments.index').refresh();
+                    _this.set('isCancelPopupOpen', false);
                     messageQueueService.addPopupMessage({
                         message: data.message,
                         level: 1
@@ -2626,8 +3370,8 @@ define('tournament-management-system/controllers/tournaments/index', ['exports']
                             message: "User is not authorized",
                             level: 3
                         });
-                        _this2.get('authenticationService').logout();
-                        _this2.transitionToRoute('index');
+                        _this.get('authenticationService').logout();
+                        _this.transitionToRoute('index');
                     } else if (+err.status === 401 || +err.status === 403) {
                         messageQueueService.addPopupMessage({
                             message: "User is not authorized",
@@ -3228,6 +3972,12 @@ define('tournament-management-system/controllers/tournaments/tournament', ['expo
             refreshModel: function refreshModel() {
                 this.get('target').router.getHandler('tournaments.tournament').refresh();
             },
+            goBack: function goBack() {
+                history.back();
+            },
+            setSelectedSchedule: function setSelectedSchedule(schedule) {
+                this.set('selectedSchedule', schedule);
+            },
             setEventPageType: function setEventPageType(value) {
                 if (this.get('eventPageType') === value) return;
                 if (value === 1 && !this.get('schedules')) {
@@ -3591,6 +4341,62 @@ define('tournament-management-system/controllers/tournaments/tournament/edit', [
         }
     });
 });
+define('tournament-management-system/helpers/add', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.add = add;
+
+  var _slicedToArray = function () {
+    function sliceIterator(arr, i) {
+      var _arr = [];
+      var _n = true;
+      var _d = false;
+      var _e = undefined;
+
+      try {
+        for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+          _arr.push(_s.value);
+
+          if (i && _arr.length === i) break;
+        }
+      } catch (err) {
+        _d = true;
+        _e = err;
+      } finally {
+        try {
+          if (!_n && _i["return"]) _i["return"]();
+        } finally {
+          if (_d) throw _e;
+        }
+      }
+
+      return _arr;
+    }
+
+    return function (arr, i) {
+      if (Array.isArray(arr)) {
+        return arr;
+      } else if (Symbol.iterator in Object(arr)) {
+        return sliceIterator(arr, i);
+      } else {
+        throw new TypeError("Invalid attempt to destructure non-iterable instance");
+      }
+    };
+  }();
+
+  function add(_ref) {
+    var _ref2 = _slicedToArray(_ref, 2),
+        num1 = _ref2[0],
+        num2 = _ref2[1];
+
+    return num1 + num2;
+  }
+
+  exports.default = Ember.Helper.helper(add);
+});
 define('tournament-management-system/helpers/and', ['exports'], function (exports) {
   'use strict';
 
@@ -3811,6 +4617,96 @@ define('tournament-management-system/helpers/concat', ['exports'], function (exp
 
   exports.default = Ember.Helper.helper(concat);
 });
+define('tournament-management-system/helpers/contains', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.contains = contains;
+
+  var _slicedToArray = function () {
+    function sliceIterator(arr, i) {
+      var _arr = [];
+      var _n = true;
+      var _d = false;
+      var _e = undefined;
+
+      try {
+        for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+          _arr.push(_s.value);
+
+          if (i && _arr.length === i) break;
+        }
+      } catch (err) {
+        _d = true;
+        _e = err;
+      } finally {
+        try {
+          if (!_n && _i["return"]) _i["return"]();
+        } finally {
+          if (_d) throw _e;
+        }
+      }
+
+      return _arr;
+    }
+
+    return function (arr, i) {
+      if (Array.isArray(arr)) {
+        return arr;
+      } else if (Symbol.iterator in Object(arr)) {
+        return sliceIterator(arr, i);
+      } else {
+        throw new TypeError("Invalid attempt to destructure non-iterable instance");
+      }
+    };
+  }();
+
+  function contains(_ref) /*, hash*/{
+    var _ref2 = _slicedToArray(_ref, 3),
+        searchArray = _ref2[0],
+        searchValue = _ref2[1],
+        searchKey = _ref2[2];
+
+    if (!searchArray) {
+      return false;
+    }
+    if (!searchKey) {
+      return searchArray.includes(searchValue);
+    }
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = searchArray[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var element = _step.value;
+
+        if (element[searchKey] === searchValue[searchKey]) {
+          return true;
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  exports.default = Ember.Helper.helper(contains);
+});
 define('tournament-management-system/helpers/eq', ['exports'], function (exports) {
   'use strict';
 
@@ -3924,6 +4820,62 @@ define('tournament-management-system/helpers/get-date', ['exports'], function (e
   }
 
   exports.default = Ember.Helper.helper(getDate);
+});
+define('tournament-management-system/helpers/gt', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.gt = gt;
+
+  var _slicedToArray = function () {
+    function sliceIterator(arr, i) {
+      var _arr = [];
+      var _n = true;
+      var _d = false;
+      var _e = undefined;
+
+      try {
+        for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+          _arr.push(_s.value);
+
+          if (i && _arr.length === i) break;
+        }
+      } catch (err) {
+        _d = true;
+        _e = err;
+      } finally {
+        try {
+          if (!_n && _i["return"]) _i["return"]();
+        } finally {
+          if (_d) throw _e;
+        }
+      }
+
+      return _arr;
+    }
+
+    return function (arr, i) {
+      if (Array.isArray(arr)) {
+        return arr;
+      } else if (Symbol.iterator in Object(arr)) {
+        return sliceIterator(arr, i);
+      } else {
+        throw new TypeError("Invalid attempt to destructure non-iterable instance");
+      }
+    };
+  }();
+
+  function gt(_ref) {
+    var _ref2 = _slicedToArray(_ref, 2),
+        value1 = _ref2[0],
+        value2 = _ref2[1];
+
+    return value1 > value2;
+  }
+
+  exports.default = Ember.Helper.helper(gt);
 });
 define('tournament-management-system/helpers/instance-gt', ['exports'], function (exports) {
   'use strict';
@@ -4090,6 +5042,62 @@ define('tournament-management-system/helpers/is-empty', ['exports'], function (e
 
   exports.default = Ember.Helper.helper(isEmpty);
 });
+define('tournament-management-system/helpers/lt', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.lt = lt;
+
+  var _slicedToArray = function () {
+    function sliceIterator(arr, i) {
+      var _arr = [];
+      var _n = true;
+      var _d = false;
+      var _e = undefined;
+
+      try {
+        for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+          _arr.push(_s.value);
+
+          if (i && _arr.length === i) break;
+        }
+      } catch (err) {
+        _d = true;
+        _e = err;
+      } finally {
+        try {
+          if (!_n && _i["return"]) _i["return"]();
+        } finally {
+          if (_d) throw _e;
+        }
+      }
+
+      return _arr;
+    }
+
+    return function (arr, i) {
+      if (Array.isArray(arr)) {
+        return arr;
+      } else if (Symbol.iterator in Object(arr)) {
+        return sliceIterator(arr, i);
+      } else {
+        throw new TypeError("Invalid attempt to destructure non-iterable instance");
+      }
+    };
+  }();
+
+  function lt(_ref) {
+    var _ref2 = _slicedToArray(_ref, 2),
+        value1 = _ref2[0],
+        value2 = _ref2[1];
+
+    return value1 < value2;
+  }
+
+  exports.default = Ember.Helper.helper(lt);
+});
 define('tournament-management-system/helpers/millis-to-date-time', ['exports'], function (exports) {
   'use strict';
 
@@ -4143,7 +5151,11 @@ define('tournament-management-system/helpers/millis-to-date-time', ['exports'], 
     if (!millis) {
       return 'Invalid Date';
     }
-    return new Date(millis).toLocaleDateString() + ' ' + new Date(millis).toLocaleTimeString('en-US', { hour12: true });
+    return new Date(millis).toLocaleDateString('en-GB', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-') + ' ' + new Date(millis).toLocaleTimeString('en-US', { hour12: true });
   }
 
   exports.default = Ember.Helper.helper(millisToDateTime);
@@ -4202,7 +5214,11 @@ define('tournament-management-system/helpers/millis-to-date', ['exports'], funct
     if (!millis) {
       return message !== null && message !== undefined ? message : 'Not specified';
     }
-    return new Date(millis).toLocaleDateString();
+    return new Date(millis).toLocaleDateString('en-GB', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');
   }
 
   exports.default = Ember.Helper.helper(millisToDate);
@@ -4262,6 +5278,61 @@ define('tournament-management-system/helpers/n-eq', ['exports'], function (expor
   }
 
   exports.default = Ember.Helper.helper(nEq);
+});
+define('tournament-management-system/helpers/not', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.not = not;
+
+  var _slicedToArray = function () {
+    function sliceIterator(arr, i) {
+      var _arr = [];
+      var _n = true;
+      var _d = false;
+      var _e = undefined;
+
+      try {
+        for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+          _arr.push(_s.value);
+
+          if (i && _arr.length === i) break;
+        }
+      } catch (err) {
+        _d = true;
+        _e = err;
+      } finally {
+        try {
+          if (!_n && _i["return"]) _i["return"]();
+        } finally {
+          if (_d) throw _e;
+        }
+      }
+
+      return _arr;
+    }
+
+    return function (arr, i) {
+      if (Array.isArray(arr)) {
+        return arr;
+      } else if (Symbol.iterator in Object(arr)) {
+        return sliceIterator(arr, i);
+      } else {
+        throw new TypeError("Invalid attempt to destructure non-iterable instance");
+      }
+    };
+  }();
+
+  function not(_ref) {
+    var _ref2 = _slicedToArray(_ref, 1),
+        value = _ref2[0];
+
+    return !value;
+  }
+
+  exports.default = Ember.Helper.helper(not);
 });
 define('tournament-management-system/helpers/object', ['exports'], function (exports) {
   'use strict';
@@ -4526,6 +5597,62 @@ define('tournament-management-system/helpers/sport-type', ['exports'], function 
   }
 
   exports.default = Ember.Helper.helper(sportType);
+});
+define('tournament-management-system/helpers/subtract', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.subtract = subtract;
+
+  var _slicedToArray = function () {
+    function sliceIterator(arr, i) {
+      var _arr = [];
+      var _n = true;
+      var _d = false;
+      var _e = undefined;
+
+      try {
+        for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+          _arr.push(_s.value);
+
+          if (i && _arr.length === i) break;
+        }
+      } catch (err) {
+        _d = true;
+        _e = err;
+      } finally {
+        try {
+          if (!_n && _i["return"]) _i["return"]();
+        } finally {
+          if (_d) throw _e;
+        }
+      }
+
+      return _arr;
+    }
+
+    return function (arr, i) {
+      if (Array.isArray(arr)) {
+        return arr;
+      } else if (Symbol.iterator in Object(arr)) {
+        return sliceIterator(arr, i);
+      } else {
+        throw new TypeError("Invalid attempt to destructure non-iterable instance");
+      }
+    };
+  }();
+
+  function subtract(_ref) {
+    var _ref2 = _slicedToArray(_ref, 2),
+        num1 = _ref2[0],
+        num2 = _ref2[1];
+
+    return num1 - num2;
+  }
+
+  exports.default = Ember.Helper.helper(subtract);
 });
 define('tournament-management-system/helpers/test-logger', ['exports'], function (exports) {
   'use strict';
@@ -5134,8 +6261,9 @@ define('tournament-management-system/routes/dashboard', ['exports', 'tournament-
                 contentType: 'application/json'
 
             }).then(function (response, textStatus, jqXHR) {
-                return response.data;
+                return response.data.tournaments;
             }).catch(function (err) {
+
                 console.log(err);
                 throw new Error(err.responseJSON.message);
             });
@@ -5168,7 +6296,7 @@ define('tournament-management-system/routes/dashboard', ['exports', 'tournament-
                 dataType: 'json',
                 contentType: 'application/json'
             }).then(function (response, textStatus, jqXHR) {
-                return response.data;
+                return response.data.tournaments;
             }).catch(function (err) {
                 console.log(err);
                 throw new Error(err.responseJSON.message);
@@ -5187,9 +6315,8 @@ define('tournament-management-system/routes/dashboard', ['exports', 'tournament-
                 dataType: 'json',
                 contentType: 'application/json'
             }).then(function (response, textStatus, jqXHR) {
-                return response.data;
+                return response.data.organizations;
             }).catch(function (err) {
-                console.log(err);
                 throw new Error(err.responseJSON.message);
             });
 
@@ -5204,9 +6331,8 @@ define('tournament-management-system/routes/dashboard', ['exports', 'tournament-
                 dataType: 'json',
                 contentType: 'application/json'
             }).then(function (response, textStatus, jqXHR) {
-                return response.data;
+                return response.data.organizations;
             }).catch(function (err) {
-                console.log(err);
                 throw new Error(err.responseJSON.message);
             });
 
@@ -5221,7 +6347,7 @@ define('tournament-management-system/routes/dashboard', ['exports', 'tournament-
                 dataType: 'json',
                 contentType: 'application/json'
             }).then(function (response, textStatus, jqXHR) {
-                return response.data;
+                return response.data.organizations;
             }).catch(function (err) {
                 console.log(err);
                 throw new Error(err.responseJSON.message);
@@ -5354,21 +6480,41 @@ define('tournament-management-system/routes/organizations', ['exports'], functio
   });
   exports.default = Ember.Route.extend({});
 });
-define('tournament-management-system/routes/organizations/index', ['exports'], function (exports) {
+define('tournament-management-system/routes/organizations/index', ['exports', 'tournament-management-system/mixins/controller-cleanup'], function (exports, _controllerCleanup) {
     'use strict';
 
     Object.defineProperty(exports, "__esModule", {
         value: true
     });
-    exports.default = Ember.Route.extend({
+    exports.default = Ember.Route.extend(_controllerCleanup.default, {
         envService: Ember.inject.service(),
+        dataPersistanceService: Ember.inject.service(),
         authenticationService: Ember.inject.service(),
         loaderService: Ember.inject.service(),
         userInfo: Ember.computed('authenticationService.userInfo', function () {
             var userInfo = this.get('authenticationService').userInfo;
             return userInfo || {};
         }),
-        beforeModel: function beforeModel() {
+
+        queryParams: {
+            page: {
+                refreshModel: true
+            },
+            sort: {
+                refreshModel: true
+            },
+            filter: {
+                refreshModel: true
+            },
+            search: {
+                refreshModel: true
+            },
+            order: {
+                refreshModel: true
+            }
+        },
+
+        beforeModel: function beforeModel(transition) {
 
             if (!this.get('authenticationService').isLoggedIn) {
                 this.transitionTo('login');
@@ -5387,14 +6533,90 @@ define('tournament-management-system/routes/organizations/index', ['exports'], f
                 return;
             }
 
+            var _transition$queryPara = transition.queryParams,
+                search = _transition$queryPara.search,
+                filter = _transition$queryPara.filter,
+                sort = _transition$queryPara.sort,
+                order = _transition$queryPara.order,
+                page = _transition$queryPara.page;
+
+
+            if (+page && +page <= 0) {
+                this.transitionTo('organizations.index', {
+                    queryParams: {
+                        search: search,
+                        filter: filter,
+                        sort: sort,
+                        order: order,
+                        page: undefined
+                    }
+                });
+                return;
+            }
+
             this.get('loaderService').setIsLoading(true);
         },
-        model: function model() {
+        model: function model(params) {
             var _this = this;
+
+            var dataPersistanceService = this.get('dataPersistanceService');
 
             var config = this.get('envService');
             var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs';
-            console.log($.ajax());
+
+            var search = params.search,
+                filter = params.filter,
+                sort = params.sort,
+                order = params.order,
+                page = params.page;
+
+
+            var queryArray = [];
+
+            if (search) {
+                queryArray.push('filter_organization=' + search);
+            }
+
+            switch (filter || '') {
+                case 'unapprovedorganizations':
+                    queryArray.push('filter_organizationstatus=0');
+                    break;
+
+                case 'approvedorganizations':
+                    queryArray.push('filter_organizationstatus=1');
+                    break;
+
+                case 'bannedorganizations':
+                    queryArray.push('filter_organizationstatus=2');
+                    break;
+                default:
+                    ;
+            }
+
+            if (sort) {
+                queryArray.push('sort_' + sort + '=' + (order || 'asc'));
+            }
+
+            if (page) {
+                queryArray.push('page=' + (page - 1));
+            }
+
+            var organizationsCountKey = 'organizationsCount[search:' + (search || '') + ',filter:' + (filter || '') + ']';
+
+            var organizationsCount = dataPersistanceService.getData(organizationsCountKey);
+
+            if (organizationsCount === null) {
+                queryArray.push('include_organizationscount=true');
+            }
+
+            queryArray.push('limit=8');
+
+            var queryString = queryArray.join('&');
+
+            if (queryString) {
+                apiURL += '?' + queryString;
+            }
+
             return $.ajax({
                 method: 'GET',
                 url: apiURL,
@@ -5415,24 +6637,41 @@ define('tournament-management-system/routes/organizations/index', ['exports'], f
                     _this.transitionTo('access-denied');
                     return;
                 }
-                console.log("error", err);
             }).always(function () {
                 _this.get('loaderService').setIsLoading(false);
             });
         },
+        setupController: function setupController(controller, model) {
+            this._super.apply(this, arguments);
 
-        actions: {
-            error: function error() {
-                console.log("error occured!");
-                return true;
+            var params = this.paramsFor('organizations.index');
+            controller.set('filterValue', params.filter || '');
+            controller.set('searchValue', params.search || '');
+            controller.set('sortValue', params.sort || '');
+            controller.set('orderValue', params.order || '');
+            controller.set('currentPage', +params.page - 1 || 0);
+            controller.set('limit', 8);
+
+            var organizations = model.organizations,
+                organizationsCount = model.organizationsCount;
+
+            controller.set('organizations', organizations);
+            if (organizationsCount !== undefined) {
+                controller.set('organizationsCount', organizationsCount);
             }
         },
-        setupController: function setupController(controller, model) {
-            controller.set('organizations', model);
+
+        actions: {
+            willTransition: function willTransition(transition) {
+                this.controllerCleanup();
+            },
+            error: function error() {
+                this.get('loaderService').setIsLoading(false);
+            }
         }
     });
 });
-define('tournament-management-system/routes/organizations/organization', ['exports'], function (exports) {
+define('tournament-management-system/routes/organizations/organization', ['exports', 'tournament-management-system/mixins/controller-cleanup'], function (exports, _controllerCleanup) {
     'use strict';
 
     Object.defineProperty(exports, "__esModule", {
@@ -5477,14 +6716,34 @@ define('tournament-management-system/routes/organizations/organization', ['expor
         };
     }();
 
-    exports.default = Ember.Route.extend({
+    exports.default = Ember.Route.extend(_controllerCleanup.default, {
         envService: Ember.inject.service(),
-        authenticationService: Ember.inject.service(),
         loaderService: Ember.inject.service(),
+        dataPersistanceService: Ember.inject.service(),
+        authenticationService: Ember.inject.service(),
         userInfo: Ember.computed('authenticationService.userInfo', function () {
             var userInfo = this.get('authenticationService').userInfo;
             return userInfo || {};
         }),
+
+        queryParams: {
+            page: {
+                refreshModel: true
+            },
+            sort: {
+                refreshModel: true
+            },
+            filter: {
+                refreshModel: true
+            },
+            search: {
+                refreshModel: true
+            },
+            order: {
+                refreshModel: true
+            }
+        },
+
         beforeModel: function beforeModel(transition) {
 
             if (!this.get('authenticationService').isLoggedIn) {
@@ -5507,15 +6766,38 @@ define('tournament-management-system/routes/organizations/organization', ['expor
                 return;
             }
 
+            var _transition$queryPara = transition.queryParams,
+                search = _transition$queryPara.search,
+                filter = _transition$queryPara.filter,
+                sort = _transition$queryPara.sort,
+                order = _transition$queryPara.order,
+                page = _transition$queryPara.page;
+
+
+            if (page && page <= 0) {
+                this.transitionTo('tournaments.index', {
+                    queryParams: {
+                        search: search,
+                        filter: filter,
+                        sort: sort,
+                        order: order,
+                        page: undefined
+                    }
+                });
+                return;
+            }
+
             this.get('loaderService').setIsLoading(true);
         },
         model: function model(params) {
             var _this = this;
 
+            var dataPersistanceService = this.get('dataPersistanceService');
+
             var organizationId = params["organization_id"];
             var config = this.get('envService');
+
             var orgApiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + organizationId;
-            var usersApiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + organizationId + '/users';
 
             var organizationRequest = $.ajax({
                 method: 'GET',
@@ -5524,14 +6806,8 @@ define('tournament-management-system/routes/organizations/organization', ['expor
                     'json': 'application/json'
                 },
                 dataType: 'json'
-            }).then(function (data, textStatus, jqXHR) {
-                return {
-                    status: jqXHR.status,
-                    data: data.data,
-                    message: data.message
-                };
-            }).then(function (res) {
-                return res.data;
+            }).then(function (response, textStatus, jqXHR) {
+                return response.data;
             }).catch(function (err) {
                 var authStatus = err.getResponseHeader('Tms-Auth-Status');
                 if (authStatus === '1') {
@@ -5546,20 +6822,61 @@ define('tournament-management-system/routes/organizations/organization', ['expor
                 throw err;
             });
 
+            var usersApiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + organizationId + '/users';
+
+            var search = params.search,
+                filter = params.filter,
+                sort = params.sort,
+                order = params.order,
+                page = params.page;
+
+
+            var queryArray = [];
+
+            if (search) {
+                queryArray.push('filter_username=' + search);
+            }
+
+            if (sort) {
+                queryArray.push('sort_' + sort + '=' + (order || 'asc'));
+            }
+
+            if (page) {
+                queryArray.push('page=' + (page - 1));
+            }
+
+            var usersCountKey = 'organizationUsersCount[search:' + (search || '') + ',filter:' + (filter || '') + ']';
+
+            var usersCount = dataPersistanceService.getData(usersCountKey);
+
+            if (usersCount === null) {
+                queryArray.push('include_userscount=true');
+            }
+
+            queryArray.push('limit=10');
+
+            var queryString = queryArray.join('&');
+
+            if (queryString) {
+                usersApiURL += '?' + queryString;
+            }
+
             var usersRequest = $.ajax({
                 method: 'GET',
                 url: usersApiURL,
                 accepts: {
                     'json': 'application/json'
                 }
-            }).then(function (data, textStatus, jqXHR) {
-                return {
-                    status: jqXHR.status,
-                    data: data.data,
-                    message: data.message
-                };
-            }).then(function (res) {
-                return res.data;
+            }).then(function (response, textStatus, jqXHR) {
+                if (jqXHR.status === 401 || jqXHR.status === 403) {
+                    _this.transitionTo('access-denied');
+                }
+                var responseData = response.data;
+                if (usersCount === null) {
+                    var usersCountResponse = responseData['usersCount'];
+                    dataPersistanceService.set(usersCountKey, usersCountResponse, 30 * 60 * 1000);
+                }
+                return responseData;
             }).catch(function (err) {
                 var authStatus = err.getResponseHeader('X-Auth-Status');
                 if (authStatus === '1') {
@@ -5577,14 +6894,16 @@ define('tournament-management-system/routes/organizations/organization', ['expor
             return Promise.all([organizationRequest, usersRequest]).then(function (response) {
                 var _response = _slicedToArray(response, 2),
                     organization = _response[0],
-                    users = _response[1];
+                    usersObject = _response[1];
+
+                var users = usersObject.users;
 
                 var admin = users.find(function (user) {
                     return user.role === 1;
                 });
                 return {
                     organization: organization,
-                    users: users,
+                    usersObject: usersObject,
                     admin: admin
                 };
             }).catch(function (err) {
@@ -5594,10 +6913,33 @@ define('tournament-management-system/routes/organizations/organization', ['expor
             });
         },
         setupController: function setupController(controller, model) {
-            this.get('loaderService').setIsLoading(false);
-            controller.set('organization', model.organization);
-            controller.set('users', model.users);
-            controller.set('admin', model.admin);
+
+            var params = this.paramsFor('organizations.organization');
+
+            controller.set('filterValue', params.filter || '');
+            controller.set('searchValue', params.search || '');
+            controller.set('sortValue', params.sort || '');
+            controller.set('orderValue', params.order || '');
+            controller.set('currentPage', +params.page - 1 || 0);
+            controller.set('limit', 10);
+
+            var organization = model.organization,
+                usersObject = model.usersObject,
+                admin = model.admin;
+
+            controller.set('organization', organization);
+            controller.set('users', usersObject.users);
+            controller.set('organizationUsersCount', usersObject.usersCount);
+            controller.set('admin', admin);
+        },
+
+        actions: {
+            willTransition: function willTransition(transition) {
+                this.controllerCleanup();
+            },
+            error: function error() {
+                this.get('loaderService').setIsLoading(false);
+            }
         }
     });
 });
@@ -5624,15 +6966,46 @@ define('tournament-management-system/routes/profile', ['exports'], function (exp
             return userInfo || {};
         }),
         beforeModel: function beforeModel() {
+
             var isLoggedIn = this.get('isLoggedIn');
             if (isLoggedIn === false) {
                 this.transitionTo('login');
                 return;
             }
         },
-        setupController: function setupController(controller) {
+        model: function model() {
+            var _this = this;
+
             var userInfo = this.get('userInfo');
-            controller.set('user', userInfo);
+            var config = this.get('envService');
+            var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + userInfo.organizationId + '/users/' + userInfo.userId;
+
+            return $.ajax({
+                method: 'GET',
+                url: apiURL,
+                accepts: {
+                    'json': 'application/json'
+                },
+                dataType: 'json'
+            }).then(function (response, textStatus, jqXHR) {
+                return response.data;
+            }).catch(function (err) {
+                var authStatus = err.getResponseHeader('Tms-Auth-Status');
+
+                if (authStatus === '1') {
+                    _this.get('authenticationService').logout();
+                    _this.transitionTo('index');
+                    return;
+                }
+                if (err.status === 401 || err.status === 403) {
+                    _this.transitionTo('access-denied');
+                    return;
+                }
+            });
+        },
+        setupController: function setupController(controller, model) {
+            model.profileBackgroundUrl = 'images/background-images/background-image-' + model.userId % 10 + '.png';
+            controller.set('user', model);
         }
     });
 });
@@ -5666,21 +7039,41 @@ define('tournament-management-system/routes/tournaments', ['exports'], function 
   });
   exports.default = Ember.Route.extend({});
 });
-define('tournament-management-system/routes/tournaments/index', ['exports'], function (exports) {
+define('tournament-management-system/routes/tournaments/index', ['exports', 'tournament-management-system/mixins/controller-cleanup'], function (exports, _controllerCleanup) {
     'use strict';
 
     Object.defineProperty(exports, "__esModule", {
         value: true
     });
-    exports.default = Ember.Route.extend({
+    exports.default = Ember.Route.extend(_controllerCleanup.default, {
         envService: Ember.inject.service(),
         authenticationService: Ember.inject.service(),
         loaderService: Ember.inject.service(),
+        dataPersistanceService: Ember.inject.service(),
         userInfo: Ember.computed('authenticationService.userInfo', function () {
             var userInfo = this.get('authenticationService').userInfo;
             return userInfo || {};
         }),
-        beforeModel: function beforeModel() {
+
+        queryParams: {
+            page: {
+                refreshModel: true
+            },
+            sort: {
+                refreshModel: true
+            },
+            filter: {
+                refreshModel: true
+            },
+            search: {
+                refreshModel: true
+            },
+            order: {
+                refreshModel: true
+            }
+        },
+
+        beforeModel: function beforeModel(transition) {
 
             if (!this.get('authenticationService').isLoggedIn) {
                 this.transitionTo('login');
@@ -5694,32 +7087,125 @@ define('tournament-management-system/routes/tournaments/index', ['exports'], fun
                 return;
             }
 
-            if (+this.get('userInfo').role === 2) {
+            if (+userInfo.role === 2) {
                 this.transitionTo('index');
                 return;
             }
 
-            if (+this.get('userInfo').role !== 0 && +this.get('userInfo').role !== 1) {
+            if (+userInfo.role !== 0 && +userInfo.role !== 1) {
                 this.get('authenticationService').logout();
                 this.transitionTo('login');
+                return;
+            }
+
+            if (userInfo.organizationId === null || userInfo.organizationId === undefined) {
+                this.get('authenticationService').logout();
+                this.transitionTo('login');
+                return;
+            }
+
+            var _transition$queryPara = transition.queryParams,
+                search = _transition$queryPara.search,
+                filter = _transition$queryPara.filter,
+                sort = _transition$queryPara.sort,
+                order = _transition$queryPara.order,
+                page = _transition$queryPara.page;
+
+
+            if (page && page <= 0) {
+                this.transitionTo('tournaments.index', {
+                    queryParams: {
+                        search: search,
+                        filter: filter,
+                        sort: sort,
+                        order: order,
+                        page: undefined
+                    }
+                });
                 return;
             }
 
             this.get('loaderService').setIsLoading(true);
         },
-        model: function model() {
+        model: function model(params) {
             var _this = this;
 
-            var orgId = this.get('userInfo').organizationId;
+            var dataPersistanceService = this.get('dataPersistanceService');
 
-            if (orgId === null || orgId === undefined) {
-                this.get('authenticationService').logout();
-                this.transitionTo('login');
-                return;
-            }
+            var userInfo = this.get('userInfo');
+            var orgId = userInfo.organizationId;
 
             var config = this.get('envService');
             var apiURL = config.getEnv('BASE_API_URL') + '/api/v1/orgs/' + orgId + '/tournaments';
+
+            var search = params.search,
+                filter = params.filter,
+                sort = params.sort,
+                order = params.order,
+                page = params.page;
+
+
+            var queryArray = [];
+
+            if (search) {
+                queryArray.push('filter_tournament=' + search);
+            }
+
+            switch (filter || '') {
+                case 'upcomingtournaments':
+                    queryArray.push('filter_tournamentstatus=0');
+                    break;
+
+                case 'ongoingtournaments':
+                    queryArray.push('filter_tournamentstatus=1');
+                    break;
+
+                case 'completedtournaments':
+                    queryArray.push('filter_tournamentstatus=2');
+                    break;
+
+                case 'cancelledtournaments':
+                    queryArray.push('filter_tournamentstatus=3');
+                    break;
+
+                case 'registered':
+                    queryArray.push('filter_userid=' + userInfo.userId);
+                    break;
+
+                case 'individualsports':
+                    queryArray.push('filter_sporttype=0');
+                    break;
+
+                case 'teamsports':
+                    queryArray.push('filter_sporttype=1');
+                    break;
+                default:
+                    ;
+            }
+
+            if (sort) {
+                queryArray.push('sort_' + sort + '=' + (order || 'asc'));
+            }
+
+            if (page) {
+                queryArray.push('page=' + (page - 1));
+            }
+
+            var tournamentsCountKey = 'tournamentsCount[search:' + (search || '') + ',filter:' + (filter || '') + ']';
+
+            var tournamentsCount = dataPersistanceService.getData(tournamentsCountKey);
+
+            if (tournamentsCount === null) {
+                queryArray.push('include_tournamentscount=true');
+            }
+
+            queryArray.push('limit=8');
+
+            var queryString = queryArray.join('&');
+
+            if (queryString) {
+                apiURL += '?' + queryString;
+            }
 
             return $.ajax({
                 method: 'GET',
@@ -5732,7 +7218,13 @@ define('tournament-management-system/routes/tournaments/index', ['exports'], fun
                 if (jqXHR.status === 401 || jqXHR.status === 403) {
                     _this.transitionTo('access-denied');
                 }
-                return response.data;
+                var responseData = response.data;
+                if (tournamentsCount === null) {
+                    var tournamentsCountResponse = responseData['tournamentsCount'];
+                    dataPersistanceService.set(tournamentsCountKey, tournamentsCountResponse, 30 * 60 * 1000);
+                }
+
+                return responseData;
             }).catch(function (err) {
                 var authStatus = err.getResponseHeader('Tms-Auth-Status');
 
@@ -5745,16 +7237,34 @@ define('tournament-management-system/routes/tournaments/index', ['exports'], fun
                     _this.transitionTo('access-denied');
                     return;
                 }
-                console.log("error", err);
             }).always(function () {
                 _this.get('loaderService').setIsLoading(false);
             });
         },
         setupController: function setupController(controller, model) {
-            controller.set('tournaments', model);
+            this._super.apply(this, arguments);
+
+            var params = this.paramsFor('tournaments.index');
+            controller.set('filterValue', params.filter || '');
+            controller.set('searchValue', params.search || '');
+            controller.set('sortValue', params.sort || '');
+            controller.set('orderValue', params.order || '');
+            controller.set('currentPage', +params.page - 1 || 0);
+            controller.set('limit', 8);
+
+            var tournamentsCount = model.tournamentsCount,
+                tournaments = model.tournaments;
+
+            controller.set('tournaments', tournaments);
+            if (tournamentsCount !== undefined) {
+                controller.set('tournamentsCount', tournamentsCount);
+            }
         },
 
         actions: {
+            willTransition: function willTransition(transition) {
+                this.controllerCleanup();
+            },
             error: function error() {
                 this.get('loaderService').setIsLoading(false);
             }
@@ -6091,7 +7601,6 @@ define('tournament-management-system/services/authentication-service', ['exports
             }).then(function (response, textStatus, jqXHR) {
                 thisRef._setUserInfo(response.data, true);
             }).catch(function (jqXHR, textStatus, errorThrown) {
-                console.log(jqXHR, textStatus, errorThrown);
                 _this.get('messageQueueService').addPopupMessage({
                     message: jqXHR.responseJson.message,
                     level: 3
@@ -6132,7 +7641,6 @@ define('tournament-management-system/services/authentication-service', ['exports
                 thisRef._setUserInfo(data.data, true);
                 callBack();
             }).catch(function (jqXHR, textStatus, errorThrown) {
-                console.log(jqXHR, textStatus, errorThrown);
                 messageQueueService.addPopupMessage({
                     message: "Invalid user credentials",
                     level: 3
@@ -6141,6 +7649,9 @@ define('tournament-management-system/services/authentication-service', ['exports
         },
         checkin: function checkin(callBack) {
             var _this3 = this;
+
+            var showErrorMsg = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+
 
             var config = this.get('envService');
             var apiURL = config.getEnv('BASE_API_URL') + '/auth/checkin';
@@ -6162,16 +7673,25 @@ define('tournament-management-system/services/authentication-service', ['exports
             }).then(function (data, textStatus, jqXHR) {
                 thisRef._setUserInfo(data.data, true);
                 callBack();
-            }).catch(function (jqXHR, textStatus, errorThrown) {
-                console.log(jqXHR, textStatus, errorThrown);
+            }).catch(function (err, textStatus, errorThrown) {
 
-                _this3.get('messageQueueService').addPopupMessage({
-                    message: jqXHR.responseJson.message,
-                    level: 0
-                });
+                var authStatus = err.getResponseHeader('Tms-Auth-Status');
+
+                if (authStatus === '1') {
+                    sessionStorage.clear();
+                    thisRef._setUserInfo(null, false);
+                    return;
+                }
+
+                if (showErrorMsg) {
+                    _this3.get('messageQueueService').addPopupMessage({
+                        message: err.responseJson.message,
+                        level: 0
+                    });
+                }
             });
         },
-        logout: function logout() {
+        logout: function logout(callBack) {
 
             var config = this.get('envService');
             var apiURL = config.getEnv('BASE_API_URL') + '/auth/logout';
@@ -6189,8 +7709,9 @@ define('tournament-management-system/services/authentication-service', ['exports
                 },
                 cache: false
             }).then(function (data, textStatus, jqXHR) {
-                thisRef._setUserInfo(null, false);
                 sessionStorage.clear();
+                thisRef._setUserInfo(null, false);
+                callBack();
             }).catch(function (jqXHR, textStatus, errorThrown) {
                 console.log(jqXHR, textStatus, errorThrown);
                 messageQueueService.addPopupMessage({
@@ -6225,12 +7746,22 @@ define('tournament-management-system/services/data-persistance-service', ['expor
 
     exports.default = Ember.Service.extend({
         data: {},
-        setData: function setData(key, value) {
+        setData: function setData(key, value, expiryTime) {
+            var _this = this;
+
             var newData = Object.assign({}, this.get('data'), _defineProperty({}, key, value));
             this.set('data', newData);
+            if (expiryTime) {
+                setTimeout(function () {
+                    delete _this.data[key];
+                }, expiryTime);
+            }
         },
         getData: function getData(key) {
             return this.get('data')[key] || null;
+        },
+        removeData: function removeData(key) {
+            delete this.data[key];
         }
     });
 });
@@ -6320,7 +7851,7 @@ define("tournament-management-system/templates/access-denied", ["exports"], func
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "Bh+LqmaR", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section\"],[13],[0,\"\\n    \"],[11,\"h1\",[]],[13],[0,\"Access Denied 🫵😡\"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/access-denied.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "jS0Q3GxM", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"section container flex ai-center jc-center fd-column\"],[13],[0,\"\\n    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"width\",\"100\"],[15,\"height\",\"100\"],[15,\"x\",\"0\"],[15,\"y\",\"0\"],[15,\"viewBox\",\"0 0 512 512\"],[15,\"style\",\"enable-background:new 0 0 512 512\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[15,\"class\",\"\"],[13],[0,\"\\n        \"],[11,\"g\",[]],[13],[0,\"\\n            \"],[11,\"circle\",[]],[15,\"cx\",\"201.995\"],[15,\"cy\",\"108\"],[15,\"r\",\"100\"],[15,\"fill\",\"#f5f5f5\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#ffffff\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#301313\"],[15,\"d\",\"M201.995 216c-14.576 0-28.721-2.857-42.041-8.49-12.862-5.44-24.411-13.226-34.327-23.142s-17.702-21.465-23.142-34.327c-5.634-13.32-8.49-27.464-8.49-42.041s2.857-28.721 8.49-42.041c5.44-12.862 13.226-24.411 23.142-34.327S147.092 13.93 159.954 8.49C173.274 2.857 187.419 0 201.995 0s28.721 2.857 42.041 8.49c12.861 5.44 24.411 13.226 34.327 23.142s17.702 21.465 23.142 34.327c5.634 13.32 8.491 27.464 8.491 42.041s-2.857 28.721-8.491 42.041c-5.44 12.862-13.226 24.411-23.142 34.327s-21.465 17.702-34.327 23.142c-13.32 5.633-27.464 8.49-42.041 8.49zm0-200c-50.729 0-92 41.271-92 92s41.271 92 92 92 92-41.271 92-92-41.271-92-92-92z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#301313\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#f5f5f5\"],[15,\"d\",\"M182.201 424h179.68c8.836 0 16-7.163 16-16v-63.44c0-31.897-14.283-60.459-36.802-79.637l.036-.043c-18.2-15.52-41.84-24.88-67.68-24.88h-142.88c-57.747 0-104.56 46.813-104.56 104.56V408c0 8.837 7.164 16 16 16h179.68z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#ffe67b\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#301313\"],[15,\"d\",\"M361.881 432H41.995c-13.234 0-24-10.766-24-24v-63.44c0-15.192 2.977-29.934 8.849-43.816 5.67-13.405 13.784-25.441 24.119-35.776s22.372-18.45 35.776-24.119c13.882-5.872 28.624-8.849 43.816-8.849h142.88c13.603 0 26.897 2.399 39.514 7.129a111.689 111.689 0 0 1 33.357 19.664c.253.216.489.444.708.682 24.714 21.42 38.867 52.374 38.867 85.085V408c0 13.234-10.766 24-24 24zm-179.68-16h179.68c4.411 0 8-3.589 8-8v-63.44c0-28.344-12.389-55.15-33.989-73.547a8.177 8.177 0 0 1-.665-.635C317.964 255.941 296.057 248 273.435 248h-142.88c-53.243 0-96.56 43.317-96.56 96.56V408c0 4.411 3.589 8 8 8z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#301313\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#ff9522\"],[15,\"d\",\"M465.948 504c15.651 0 25.242-16.168 17.059-28.761L367.078 297.006c-7.826-12.008-26.34-12.008-34.166 0L216.983 475.239C208.8 487.832 218.391 504 234.042 504z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#ff9292\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#301313\"],[15,\"d\",\"M465.948 512H234.042c-10.487 0-20.011-5.545-24.855-14.47-4.625-8.522-4.218-18.484 1.088-26.65l115.931-178.236c5.161-7.92 14.053-12.644 23.789-12.644s18.628 4.724 23.785 12.638l115.933 178.239c5.308 8.168 5.715 18.131 1.09 26.653-4.844 8.925-14.368 14.47-24.855 14.47zM349.995 296c-4.307 0-8.188 2.009-10.38 5.374L223.69 479.601c-2.087 3.212-2.248 6.966-.44 10.297 2.074 3.821 6.109 6.102 10.793 6.102h231.906c4.684 0 8.719-2.281 10.793-6.102 1.808-3.331 1.647-7.085-.442-10.299l-115.928-178.23c-2.189-3.36-6.07-5.369-10.377-5.369z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#301313\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#301313\"],[15,\"d\",\"M349.995 444a8 8 0 0 1-8-8v-76a8 8 0 0 1 16 0v76a8 8 0 0 1-8 8zM349.995 480a8 8 0 0 1-8-8v-4a8 8 0 0 1 16 0v4a8 8 0 0 1-8 8z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#301313\"],[13],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"h1\",[]],[15,\"class\",\"ft-night-black ft-9xl wt-500\"],[13],[0,\"403 \"],[14],[0,\"\\n    \"],[11,\"h2\",[]],[15,\"class\",\"ft-night-black ft-6xl wt-500\"],[13],[0,\"Access Denied\"],[14],[0,\"\\n    \"],[6,[\"link-to\"],[\"index\"],[[\"class\"],[\"ft-blue no-decoration\"]],{\"statements\":[[0,\"Go to Home\"]],\"locals\":[]},null],[0,\"\\n\"],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/access-denied.hbs" } });
 });
 define("tournament-management-system/templates/application", ["exports"], function (exports) {
   "use strict";
@@ -6392,7 +7923,7 @@ define("tournament-management-system/templates/components/nav-bar", ["exports"],
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "xd560Q3f", "block": "{\"statements\":[[6,[\"link-to\"],[\"index\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"    \"],[11,\"div\",[]],[15,\"class\",\"navbar-logo\"],[13],[14],[0,\"\\n\"]],\"locals\":[]},null],[11,\"nav\",[]],[15,\"class\",\"navbar-menu\"],[13],[0,\"\\n\"],[6,[\"if\"],[[28,[\"isLoggedIn\"]]],null,{\"statements\":[[6,[\"link-to\"],[\"dashboard\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Dashboard\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"unless\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"                 \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Tournaments\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],0],null]],null,{\"statements\":[[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null]],null,{\"statements\":[[6,[\"link-to\"],[\"organizations.organization\",[28,[\"userInfo\",\"organizationId\"]]],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Organization\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"link-to\"],[\"organizations\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Organizations\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"navbar-profile-menu-container\"],[13],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-transparent bg-transparent no-padding icon-4xl\",true,[33,[\"action\"],[[28,[null]],\"handleProfileMenuVisibility\"],null]]],{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"viewBox\",\"0 0 24 24\"],[15,\"fill\",\"none\"],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"stroke\",\"#bbbbbb\"],[15,\"stroke-width\",\"1.104\"],[13],[0,\"\\n                    \"],[11,\"g\",[]],[15,\"stroke-width\",\"0\"],[13],[14],[0,\"\\n                    \"],[11,\"g\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"stroke\",\"#CCCCCC\"],[15,\"stroke-width\",\"0.144\"],[13],[14],[0,\"\\n                    \"],[11,\"g\",[]],[13],[0,\" \\n                        \"],[11,\"path\",[]],[15,\"opacity\",\"0.4\"],[15,\"d\",\"M12 22.01C17.5228 22.01 22 17.5329 22 12.01C22 6.48716 17.5228 2.01001 12 2.01001C6.47715 2.01001 2 6.48716 2 12.01C2 17.5329 6.47715 22.01 12 22.01Z\"],[15,\"fill\",\"#bbbbbb\"],[13],[14],[0,\" \\n                        \"],[11,\"path\",[]],[15,\"d\",\"M12 6.93994C9.93 6.93994 8.25 8.61994 8.25 10.6899C8.25 12.7199 9.84 14.3699 11.95 14.4299C11.98 14.4299 12.02 14.4299 12.04 14.4299C12.06 14.4299 12.09 14.4299 12.11 14.4299C12.12 14.4299 12.13 14.4299 12.13 14.4299C14.15 14.3599 15.74 12.7199 15.75 10.6899C15.75 8.61994 14.07 6.93994 12 6.93994Z\"],[15,\"fill\",\"#bbbbbb\"],[13],[14],[0,\" \\n                        \"],[11,\"path\",[]],[15,\"d\",\"M18.7807 19.36C17.0007 21 14.6207 22.01 12.0007 22.01C9.3807 22.01 7.0007 21 5.2207 19.36C5.4607 18.45 6.1107 17.62 7.0607 16.98C9.7907 15.16 14.2307 15.16 16.9407 16.98C17.9007 17.62 18.5407 18.45 18.7807 19.36Z\"],[15,\"fill\",\"#bbbbbb\"],[13],[14],[0,\" \\n                    \"],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[28,[\"isProfileMenuOpen\"]]],null,{\"statements\":[[0,\"                \"],[11,\"div\",[]],[15,\"class\",\"navbar-profile-menu\"],[13],[0,\"\\n\"],[6,[\"link-to\"],[\"profile\"],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"no-border bg-white ft-night-black full-width\",\"Profile\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"no-border bg-white ft-red soft-corner full-width\",\"Logout\",[33,[\"action\"],[[28,[null]],\"logout\"],null]]]],false],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"link-to\"],[\"register\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"bg-blue br-blue ft-white\",\"Register\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"link-to\"],[\"login\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"no-border bg-transparent ft-blue\",\"Login\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[14],[0,\"\\n\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/nav-bar.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "dYihCovz", "block": "{\"statements\":[[6,[\"link-to\"],[\"index\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"    \"],[11,\"div\",[]],[15,\"class\",\"navbar-logo\"],[13],[14],[0,\"\\n\"]],\"locals\":[]},null],[11,\"nav\",[]],[15,\"class\",\"navbar-menu\"],[13],[0,\"\\n\"],[6,[\"if\"],[[28,[\"isLoggedIn\"]]],null,{\"statements\":[[6,[\"link-to\"],[\"dashboard\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Dashboard\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"unless\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"                 \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Tournaments\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],0],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null]],null]],null,{\"statements\":[[6,[\"link-to\"],[\"organizations.organization\",[28,[\"userInfo\",\"organizationId\"]]],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Organization\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"link-to\"],[\"organizations\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"nav-button bg-transparent no-border ft-grey\",\"Organizations\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"navbar-profile-menu-container\"],[13],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-transparent bg-transparent no-padding icon-4xl\",true,[33,[\"action\"],[[28,[null]],\"handleProfileMenuVisibility\"],null]]],{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"viewBox\",\"0 0 24 24\"],[15,\"fill\",\"none\"],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"stroke\",\"#bbbbbb\"],[15,\"stroke-width\",\"1.104\"],[13],[0,\"\\n                    \"],[11,\"g\",[]],[15,\"stroke-width\",\"0\"],[13],[14],[0,\"\\n                    \"],[11,\"g\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"stroke\",\"#CCCCCC\"],[15,\"stroke-width\",\"0.144\"],[13],[14],[0,\"\\n                    \"],[11,\"g\",[]],[13],[0,\" \\n                        \"],[11,\"path\",[]],[15,\"opacity\",\"0.4\"],[15,\"d\",\"M12 22.01C17.5228 22.01 22 17.5329 22 12.01C22 6.48716 17.5228 2.01001 12 2.01001C6.47715 2.01001 2 6.48716 2 12.01C2 17.5329 6.47715 22.01 12 22.01Z\"],[15,\"fill\",\"#bbbbbb\"],[13],[14],[0,\" \\n                        \"],[11,\"path\",[]],[15,\"d\",\"M12 6.93994C9.93 6.93994 8.25 8.61994 8.25 10.6899C8.25 12.7199 9.84 14.3699 11.95 14.4299C11.98 14.4299 12.02 14.4299 12.04 14.4299C12.06 14.4299 12.09 14.4299 12.11 14.4299C12.12 14.4299 12.13 14.4299 12.13 14.4299C14.15 14.3599 15.74 12.7199 15.75 10.6899C15.75 8.61994 14.07 6.93994 12 6.93994Z\"],[15,\"fill\",\"#bbbbbb\"],[13],[14],[0,\" \\n                        \"],[11,\"path\",[]],[15,\"d\",\"M18.7807 19.36C17.0007 21 14.6207 22.01 12.0007 22.01C9.3807 22.01 7.0007 21 5.2207 19.36C5.4607 18.45 6.1107 17.62 7.0607 16.98C9.7907 15.16 14.2307 15.16 16.9407 16.98C17.9007 17.62 18.5407 18.45 18.7807 19.36Z\"],[15,\"fill\",\"#bbbbbb\"],[13],[14],[0,\" \\n                    \"],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[28,[\"isProfileMenuOpen\"]]],null,{\"statements\":[[0,\"                \"],[11,\"div\",[]],[15,\"class\",\"navbar-profile-menu\"],[13],[0,\"\\n\"],[6,[\"link-to\"],[\"profile\"],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"no-border bg-white ft-night-black full-width\",\"Profile\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"no-border bg-white ft-red soft-corner full-width\",\"Logout\",[33,[\"action\"],[[28,[null]],\"logout\"],null]]]],false],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"link-to\"],[\"register\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"bg-blue br-blue ft-white\",\"Register\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"link-to\"],[\"login\"],[[\"class\"],[\"navbar-link\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"no-border bg-transparent ft-blue\",\"Login\"]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[14],[0,\"\\n\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/nav-bar.hbs" } });
 });
 define("tournament-management-system/templates/components/organization-card", ["exports"], function (exports) {
   "use strict";
@@ -6416,7 +7947,7 @@ define("tournament-management-system/templates/components/organization-navbar", 
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "8Un23fUC", "block": "{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments.new\"],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\"],[\"br-green bg-green ft-white soft-corner\",\"New Organization\",true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null]],\"locals\":[]},null],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\",\"searchBarId\",\"class\"],[300,[28,[\"searchOrganizations\"]],\"organization-search-bar\",\"bg-white max-width-lg\"]]],false],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/organization-navbar.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "Nsput6fZ", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"organization-navbar-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments.new\"],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\"],[\"br-green bg-green ft-white soft-corner\",\"Organization\",true]],{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                    \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"gt\"],[[28,[\"currentPage\"]],0],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,[33,[\"action\"],[[28,[null]],\"prevPage\"],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M15.75 19.5 8.25 12l7.5-7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"disabled\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M15.75 19.5 8.25 12l7.5-7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[6,[\"if\"],[[33,[\"lt\"],[[28,[\"currentPage\"]],[33,[\"subtract\"],[[28,[\"totalPages\"]],1],null]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,[33,[\"action\"],[[28,[null]],\"nextPage\"],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m8.25 4.5 7.5 7.5-7.5 7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"disabled\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m8.25 4.5 7.5 7.5-7.5 7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[14],[0,\"\\n\"],[11,\"div\",[]],[15,\"class\",\"organization-navbar-box\"],[13],[0,\"\\n    \"],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\",\"objectKey\",\"searchValue\",\"searchBarId\",\"class\"],[300,[28,[\"searchOrganizations\"]],\"searchValue\",[28,[\"searchValue\"]],\"organization-search-bar\",\"bg-white max-width-lg\"]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"filter\",[28,[\"searchOrganizations\"]],\"filterValue\",[28,[\"filterValue\"]],[28,[\"filterOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"sort\",[28,[\"searchOrganizations\"]],\"sortValue\",[28,[\"sortValue\"]],[28,[\"sortOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"order\",[28,[\"searchOrganizations\"]],\"orderValue\",[28,[\"orderValue\"]],[28,[\"orderOptions\"]]]]],false],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/organization-navbar.hbs" } });
 });
 define("tournament-management-system/templates/components/organization-user-form", ["exports"], function (exports) {
   "use strict";
@@ -6424,7 +7955,7 @@ define("tournament-management-system/templates/components/organization-user-form
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "MsCIXkxk", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container organization-user-form-container\"],[13],[0,\"\\n\"],[6,[\"form-model\"],null,[[\"class\",\"formHeader\",\"onSubmit\"],[\"organization-user-form-model\",\"Add Member\",[33,[\"action\"],[[28,[null]],\"handleOrganizationUserFormSubmit\"],null]]],{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-innerbox\"],[13],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"userName\",\"register-username\",\"Full Name\",true,[28,[\"validationErrors\",\"userName\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"dateOfBirth\",\"register-dateofbirth\",\"Date Of Birth (dd/mm/yyyy)\",true,[28,[\"validationErrors\",\"dateOfBirth\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"phoneNumber\",\"register-phonenumber\",\"Phone Number\",true,[28,[\"validationErrors\",\"phoneNumber\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"email\",\"register-email\",\"Email\",true,[28,[\"validationErrors\",\"email\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"password\",\"register-password\",\"Password\",true,[28,[\"validationErrors\",\"password\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"confirmPassword\",\"register-confirmpassword\",\"Confirm Password\",true,[28,[\"validationErrors\",\"confirmPassword\"]]]]],false],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-buttons\"],[13],[0,\"\\n                    \"],[1,[33,[\"general-button\"],null,[[\"buttonName\",\"class\",\"onClick\"],[\"Cancel\",\"br-light-grey bg-pale-white ft-night-black soft-corner full-width\",[33,[\"action\"],[[28,[null]],[28,[\"closeOrganizationUserForm\"]]],null]]]],false],[0,\"\\n                    \"],[1,[33,[\"general-button\"],null,[[\"type\",\"buttonName\",\"class\"],[\"submit\",\"Save\",\"br-blue bg-blue ft-white soft-corner full-width\"]]],false],[0,\"\\n                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/organization-user-form.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "IzwES69T", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container organization-user-form-container\"],[13],[0,\"\\n\"],[6,[\"form-model\"],null,[[\"class\",\"formHeader\",\"onSubmit\"],[\"organization-user-form-model\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],1],null],\"Add Member\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],2],null],\"Update Member\",[33,[\"if\"],[[28,[\"editProfileFormOpen\"]],\"Edit Profile\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],3],null],\"User Details\",[33,[\"if\"],[[28,[\"changePasswordFormOpen\"]],\"Change Password\",\"\"],null]],null]],null]],null]],null],[33,[\"action\"],[[28,[null]],\"handleOrganizationUserFormSubmit\"],null]]],{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],1],null]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-innerbox\"],[13],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"userName\",\"register-username\",\"Full Name\",true,[28,[\"validationErrors\",\"userName\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"dateOfBirth\",\"register-dateofbirth\",\"Date Of Birth (dd/mm/yyyy)\",true,[28,[\"validationErrors\",\"dateOfBirth\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"phoneNumber\",\"register-phonenumber\",\"Phone Number\",true,[28,[\"validationErrors\",\"phoneNumber\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"email\",\"register-email\",\"Email\",true,[28,[\"validationErrors\",\"email\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"password\",\"register-password\",\"Password\",true,[28,[\"validationErrors\",\"password\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"confirmPassword\",\"register-confirmpassword\",\"Confirm Password\",true,[28,[\"validationErrors\",\"confirmPassword\"]]]]],false],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],2],null],[28,[\"editProfileFormOpen\"]]],null]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-innerbox\"],[13],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"userName\",\"edit-username\",\"Full Name\",[28,[\"user\",\"userName\"]],true,[28,[\"validationErrors\",\"userName\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"dateOfBirth\",\"edit-dateofbirth\",\"Date Of Birth (dd/mm/yyyy)\",[33,[\"millis-to-date\"],[[28,[\"user\",\"dateOfBirth\"]]],null],true,[28,[\"validationErrors\",\"dateOfBirth\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"phoneNumber\",\"edit-phonenumber\",\"Phone Number\",[28,[\"user\",\"phoneNumber\"]],true,[28,[\"validationErrors\",\"phoneNumber\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"email\",\"edit-email\",\"Email\",[28,[\"user\",\"email\"]],true,[28,[\"validationErrors\",\"email\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"selectedValue\",\"options\",\"errorMessage\"],[\"gender\",\"edit-gender\",\"Gender\",[28,[\"user\",\"gender\"]],[28,[\"genderOptions\"]],[28,[\"validationErrors\",\"gender\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"selectedValue\",\"options\",\"errorMessage\"],[\"bloodGroup\",\"edit-bloodgroup\",\"Blood Group\",[28,[\"user\",\"bloodGroup\"]],[28,[\"bloodGroupOptions\"]],[28,[\"validationErrors\",\"bloodGroup\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"errorMessage\"],[\"userAddress\",\"edit-useraddress\",\"Address\",[28,[\"user\",\"userAddress\"]],[28,[\"validationErrors\",\"userAddress\"]]]]],false],[0,\"\\n\"],[6,[\"if\"],[[28,[\"editProfileFormOpen\"]]],null,{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[15,\"class\",\"ft-sm ft-grey\"],[13],[0,\"Want to change password? \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-transparent bg-transparent ft-blue pd-sm\",\"Click Here\",[33,[\"action\"],[[28,[null]],[28,[\"switchChangePasswordFormOpen\"]]],null]]]],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                    \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],3],null]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-innerbox\"],[13],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"userName\",\"view-username\",\"Full Name\",[28,[\"user\",\"userName\"]],true]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"dateOfBirth\",\"view-dateofbirth\",\"Date Of Birth (dd/mm/yyyy)\",[33,[\"millis-to-date\"],[[28,[\"user\",\"dateOfBirth\"]]],null],true]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"phoneNumber\",\"view-phonenumber\",\"Phone Number\",[28,[\"user\",\"phoneNumber\"]],true]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"email\",\"view-email\",\"Email\",[28,[\"user\",\"email\"]],true]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"gender\",\"view-gender\",\"Gender\",[33,[\"compute-gender\"],[[28,[\"user\",\"gender\"]]],null],true]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"bloodGroup\",\"view-bloodgroup\",\"Blood Group\",[33,[\"concat\"],[[28,[\"user\",\"bloodGroup\"]],\"Ve\"],null],true]]],false],[0,\"\\n                        \"],[1,[33,[\"text-input\"],null,[[\"class\",\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isDisabled\"],[\"bg-pale-white\",\"userAddress\",\"view-useraddress\",\"Address\",[33,[\"or\"],[[28,[\"user\",\"userAddress\"]],\"-\"],null],true]]],false],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[28,[\"changePasswordFormOpen\"]]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-innerbox\"],[13],[0,\"\\n                        \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"oldPassword\",\"change-password-oldpassword\",\"Old Password\",true,[28,[\"validationErrors\",\"oldPassword\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"newPassword\",\"change-password-newpassword\",\"New Password\",true,[28,[\"validationErrors\",\"newPassword\"]]]]],false],[0,\"\\n                        \"],[1,[33,[\"password-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"confirmNewPassword\",\"change-password-confirmnewpassword\",\"Confirm New Password\",true,[28,[\"validationErrors\",\"confirmNewPassword\"]]]]],false],[0,\"\\n                        \"],[11,\"p\",[]],[15,\"class\",\"ft-sm ft-grey\"],[13],[0,\"Switch to edit profile, \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-transparent bg-transparent ft-blue pd-sm\",\"Click Here\",[33,[\"action\"],[[28,[null]],[28,[\"switchEditProfileFromOpen\"]]],null]]]],false],[14],[0,\"\\n                    \"],[14],[0,\"\\n                \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}],[0,\"                \"],[11,\"div\",[]],[15,\"class\",\"organization-user-form-buttons\"],[13],[0,\"\\n                    \"],[1,[33,[\"general-button\"],null,[[\"buttonName\",\"class\",\"onClick\"],[[33,[\"unless\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],3],null],\"Cancel\",\"Close\"],null],\"br-light-grey bg-pale-white ft-night-black soft-corner full-width\",[33,[\"action\"],[[28,[null]],[28,[\"closeOrganizationUserForm\"]]],null]]]],false],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],3],null]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"type\",\"buttonName\",\"class\"],[\"submit\",\"Save\",\"br-blue bg-blue ft-white soft-corner full-width\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/organization-user-form.hbs" } });
 });
 define("tournament-management-system/templates/components/organization-user-navbar", ["exports"], function (exports) {
   "use strict";
@@ -6432,7 +7963,7 @@ define("tournament-management-system/templates/components/organization-user-navb
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "1QxO4tAq", "block": "{\"statements\":[[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-green bg-green ft-white soft-corner\",\"New Member\",true,[33,[\"action\"],[[28,[null]],[28,[\"openAddUserForm\"]]],null]]],{\"statements\":[[0,\"        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\",\"searchBarId\",\"class\"],[300,[28,[\"searchOrganizationUsers\"]],\"organization-user-search-bar\",\"bg-pale-white max-width-lg\"]]],false],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/organization-user-navbar.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "WAUuLAG9", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"organization-user-navbar-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-green bg-green ft-white soft-corner\",\"Member\",true,[33,[\"action\"],[[28,[null]],[28,[\"openAddUserForm\"]]],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"gt\"],[[28,[\"currentPage\"]],0],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,[33,[\"action\"],[[28,[null]],\"prevPage\"],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M15.75 19.5 8.25 12l7.5-7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"disabled\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M15.75 19.5 8.25 12l7.5-7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[6,[\"if\"],[[33,[\"lt\"],[[28,[\"currentPage\"]],[33,[\"subtract\"],[[28,[\"totalPages\"]],1],null]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,[33,[\"action\"],[[28,[null]],\"nextPage\"],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m8.25 4.5 7.5 7.5-7.5 7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"disabled\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m8.25 4.5 7.5 7.5-7.5 7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[14],[0,\"\\n\"],[11,\"div\",[]],[15,\"class\",\"organization-user-navbar-box\"],[13],[0,\"\\n    \"],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\",\"objectKey\",\"searchValue\",\"searchBarId\",\"class\"],[300,[28,[\"searchOrganizationUsers\"]],\"searchValue\",[28,[\"searchValue\"]],\"organization-user-search-bar\",\"max-width-lg\"]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"sort\",[28,[\"searchOrganizationUsers\"]],\"sortValue\",[28,[\"sortValue\"]],[28,[\"sortOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"order\",[28,[\"searchOrganizationUsers\"]],\"orderValue\",[28,[\"orderValue\"]],[28,[\"orderOptions\"]]]]],false],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/organization-user-navbar.hbs" } });
 });
 define("tournament-management-system/templates/components/participant-card", ["exports"], function (exports) {
   "use strict";
@@ -6464,7 +7995,7 @@ define("tournament-management-system/templates/components/search-bar", ["exports
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "vE0VhNrV", "block": "{\"statements\":[[11,\"label\",[]],[15,\"class\",\"search-icon\"],[16,\"for\",[26,[\"searchBarId\"]],null],[13],[14],[0,\"\\n\"],[11,\"input\",[]],[15,\"type\",\"text\"],[15,\"class\",\"search-input\"],[16,\"value\",[26,[\"searchField\"]],null],[16,\"id\",[26,[\"searchBarId\"]],null],[13],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/search-bar.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "LSQanVjQ", "block": "{\"statements\":[[11,\"label\",[]],[15,\"class\",\"search-icon\"],[16,\"for\",[26,[\"searchBarId\"]],null],[13],[14],[0,\"\\n\"],[11,\"input\",[]],[15,\"type\",\"text\"],[15,\"class\",\"search-input\"],[16,\"value\",[26,[\"searchValue\"]],null],[16,\"id\",[26,[\"searchBarId\"]],null],[13],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/search-bar.hbs" } });
 });
 define("tournament-management-system/templates/components/select-input", ["exports"], function (exports) {
   "use strict";
@@ -6496,7 +8027,7 @@ define("tournament-management-system/templates/components/text-input", ["exports
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "Cb2okaie", "block": "{\"statements\":[[11,\"div\",[]],[16,\"class\",[34,[\"input-box \",[33,[\"unless\"],[[28,[\"errorMessage\"]],\"br-light-grey\",\"br-red\"],null]]]],[13],[0,\"\\n\"],[6,[\"if\"],[[28,[\"labelName\"]]],null,{\"statements\":[[0,\"        \"],[11,\"label\",[]],[15,\"class\",\"input-label\"],[16,\"for\",[26,[\"inputId\"]],null],[13],[0,\"\\n            \"],[1,[26,[\"labelName\"]],false],[0,\" \\n\"],[6,[\"if\"],[[28,[\"isRequired\"]]],null,{\"statements\":[[0,\"                \"],[11,\"span\",[]],[15,\"class\",\"input-required ft-red\"],[13],[0,\"*\"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \"],[11,\"input\",[]],[16,\"id\",[26,[\"inputId\"]],null],[16,\"name\",[26,[\"inputName\"]],null],[16,\"value\",[26,[\"defaultValue\"]],null],[15,\"class\",\"input-field\"],[16,\"placeholder\",[26,[\"inputPlaceholder\"]],null],[5,[\"action\"],[[28,[null]],\"handleInputChange\"],[[\"on\"],[\"input\"]]],[13],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[6,[\"if\"],[[28,[\"errorMessage\"]]],null,{\"statements\":[[0,\"    \"],[11,\"p\",[]],[15,\"class\",\"input-error\"],[13],[1,[26,[\"errorMessage\"]],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/text-input.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "ID+Av8Mr", "block": "{\"statements\":[[11,\"div\",[]],[16,\"class\",[34,[\"input-box \",[33,[\"unless\"],[[28,[\"errorMessage\"]],\"br-light-grey\",\"br-red\"],null]]]],[13],[0,\"\\n\"],[6,[\"if\"],[[28,[\"labelName\"]]],null,{\"statements\":[[0,\"        \"],[11,\"label\",[]],[15,\"class\",\"input-label\"],[16,\"for\",[26,[\"inputId\"]],null],[13],[0,\"\\n            \"],[1,[26,[\"labelName\"]],false],[0,\" \\n\"],[6,[\"if\"],[[28,[\"isRequired\"]]],null,{\"statements\":[[0,\"                \"],[11,\"span\",[]],[15,\"class\",\"input-required ft-red\"],[13],[0,\"*\"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[28,[\"isDisabled\"]]],null,{\"statements\":[[0,\"        \"],[11,\"input\",[]],[16,\"id\",[26,[\"inputId\"]],null],[16,\"name\",[26,[\"inputName\"]],null],[16,\"value\",[26,[\"defaultValue\"]],null],[15,\"class\",\"input-field\"],[16,\"placeholder\",[26,[\"inputPlaceholder\"]],null],[15,\"disabled\",\"true\"],[5,[\"action\"],[[28,[null]],\"handleInputChange\"],[[\"on\"],[\"input\"]]],[13],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"        \"],[11,\"input\",[]],[16,\"id\",[26,[\"inputId\"]],null],[16,\"name\",[26,[\"inputName\"]],null],[16,\"value\",[26,[\"defaultValue\"]],null],[15,\"class\",\"input-field\"],[16,\"placeholder\",[26,[\"inputPlaceholder\"]],null],[5,[\"action\"],[[28,[null]],\"handleInputChange\"],[[\"on\"],[\"input\"]]],[13],[14],[0,\"\\n\"]],\"locals\":[]}],[14],[0,\"\\n\"],[6,[\"if\"],[[28,[\"errorMessage\"]]],null,{\"statements\":[[0,\"    \"],[11,\"p\",[]],[15,\"class\",\"input-error\"],[13],[1,[26,[\"errorMessage\"]],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/text-input.hbs" } });
 });
 define("tournament-management-system/templates/components/tournament-card-slider", ["exports"], function (exports) {
   "use strict";
@@ -6512,7 +8043,7 @@ define("tournament-management-system/templates/components/tournament-card", ["ex
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "6Wy94Fuz", "block": "{\"statements\":[[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration tournament-card-image-box\"]],{\"statements\":[[0,\"    \"],[11,\"img\",[]],[15,\"class\",\"tournament-card-image\"],[16,\"src\",[33,[\"prepend-root\"],[[28,[\"tournament\",\"tournamentPoster\"]]],null],null],[15,\"alt\",\"Tournament Poster\"],[13],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-status\"],[13],[1,[33,[\"tournament-status\"],[[28,[\"tournament\",\"tournamentStatus\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[11,\"div\",[]],[15,\"class\",\"tournament-card-details\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-title-box\"],[13],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration tournament-card-title\"]],{\"statements\":[[0,\"            \"],[1,[28,[\"tournament\",\"tournamentName\"]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-menu-box\"],[13],[0,\"\\n                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonIcon\",\"onClick\",\"title\"],[\"pd-sq-sm no-border bg-transparent soft-corner\",\"images/dots-menu-icon.svg\",[33,[\"action\"],[[28,[null]],\"handleMenuVisibility\"],null],\"Menu\"]]],false],[0,\"\\n\"],[6,[\"if\"],[[28,[\"isMenuOpen\"]]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-menu\"],[13],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments.tournament.edit\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[0,\"                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"full-width bg-white no-border\",\"Edit\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"full-width bg-white no-border\",\"Cancel\",[33,[\"action\"],[[28,[null]],\"selectAndOpenPopup\"],null]]]],false],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-box\"],[13],[0,\"\\n        \"],[1,[33,[\"card-item\"],null,[[\"class\",\"itemIconClass\",\"itemName\",\"title\"],[\"mw-50p\",\"cube-icon\",[28,[\"tournament\",\"sportName\"]],\"Sport\"]]],false],[0,\"\\n        \"],[1,[33,[\"card-item\"],null,[[\"class\",\"itemIconClass\",\"itemName\",\"title\"],[\"align-end mw-50p\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null],\"individual-icon\",\"people-icon\"],null],[33,[\"sport-type\"],[[28,[\"tournament\",\"sportType\"]]],null],\"Participation Type\"]]],false],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-box\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-innerbox mw-50p\"],[13],[0,\"\\n            \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemName\",\"title\"],[\"calander-icon\",[33,[\"get-date\"],[[28,[\"tournament\",\"tournamentDate\"]]],null],\"Tournament Date\"]]],false],[0,\"\\n            \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemName\",\"title\"],[\"clock-icon\",[33,[\"calculate-deadline\"],[[28,[\"tournament\",\"registrationStartDate\"]],[28,[\"tournament\",\"registrationEndDate\"]]],null],\"Deadline\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"br-blue bg-white ft-blue curved\",\"Details\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-card.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "cIgWhqxU", "block": "{\"statements\":[[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration tournament-card-image-box\"]],{\"statements\":[[0,\"    \"],[11,\"img\",[]],[15,\"class\",\"tournament-card-image\"],[16,\"src\",[33,[\"prepend-root\"],[[28,[\"tournament\",\"tournamentPoster\"]]],null],null],[15,\"alt\",\"Tournament Poster\"],[13],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-status\"],[13],[1,[33,[\"tournament-status\"],[[28,[\"tournament\",\"tournamentStatus\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[11,\"div\",[]],[15,\"class\",\"tournament-card-details\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-title-box\"],[13],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration tournament-card-title\"]],{\"statements\":[[0,\"            \"],[1,[28,[\"tournament\",\"tournamentName\"]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[33,[\"and\"],[[28,[\"showMenu\"]],[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-menu-box\"],[13],[0,\"\\n                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonIcon\",\"onClick\",\"title\"],[\"pd-sq-sm no-border bg-transparent soft-corner\",\"images/dots-menu-icon.svg\",[33,[\"action\"],[[28,[null]],\"handleMenuVisibility\"],null],\"Menu\"]]],false],[0,\"\\n\"],[6,[\"if\"],[[28,[\"isMenuOpen\"]]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-menu\"],[13],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments.tournament.edit\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[0,\"                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"full-width bg-white no-border\",\"Edit\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"full-width bg-white no-border\",\"Cancel\",[33,[\"action\"],[[28,[null]],\"selectAndOpenPopup\"],null]]]],false],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-box\"],[13],[0,\"\\n        \"],[1,[33,[\"card-item\"],null,[[\"class\",\"itemIconClass\",\"itemName\",\"title\"],[\"mw-50p\",\"cube-icon\",[28,[\"tournament\",\"sportName\"]],\"Sport\"]]],false],[0,\"\\n        \"],[1,[33,[\"card-item\"],null,[[\"class\",\"itemIconClass\",\"itemName\",\"title\"],[\"align-end mw-50p\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null],\"individual-icon\",\"people-icon\"],null],[33,[\"sport-type\"],[[28,[\"tournament\",\"sportType\"]]],null],\"Participation Type\"]]],false],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-box\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-innerbox mw-50p\"],[13],[0,\"\\n            \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemName\",\"title\"],[\"calander-icon\",[33,[\"get-date\"],[[28,[\"tournament\",\"tournamentDate\"]]],null],\"Tournament Date\"]]],false],[0,\"\\n            \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemName\",\"title\"],[\"clock-icon\",[33,[\"calculate-deadline\"],[[28,[\"tournament\",\"registrationStartDate\"]],[28,[\"tournament\",\"registrationEndDate\"]]],null],\"Deadline\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"tournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[0,\"            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"br-blue bg-white ft-blue curved\",\"Details\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-card.hbs" } });
 });
 define("tournament-management-system/templates/components/tournament-navbar", ["exports"], function (exports) {
   "use strict";
@@ -6520,7 +8051,7 @@ define("tournament-management-system/templates/components/tournament-navbar", ["
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "/ME6X8jC", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-navbar-box\"],[13],[0,\"\\n    \"],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\",\"objectKey\",\"searchValue\",\"searchBarId\",\"class\"],[200,[28,[\"searchTournaments\"]],\"searchValue\",[28,[\"searchValue\"]],\"tournament-search-bar\",\"bg-white max-width-lg\"]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"filter\",[28,[\"searchTournaments\"]],\"filterValue\",[28,[\"filterValue\"]],[28,[\"filterOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"sort\",[28,[\"searchTournaments\"]],\"sortValue\",[28,[\"sortValue\"]],[28,[\"sortOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"order\",[28,[\"searchTournaments\"]],\"orderValue\",[28,[\"orderValue\"]],[28,[\"orderOptions\"]]]]],false],[0,\"\\n\"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments.new\"],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\"],[\"br-green bg-green ft-white soft-corner\",\"Create\",true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null]],\"locals\":[]},null],[18,\"default\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-navbar.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "dEkh81xW", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-navbar-box\"],[13],[0,\"\\n    \"],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\",\"objectKey\",\"searchValue\",\"searchBarId\",\"class\"],[200,[28,[\"searchTournaments\"]],\"searchValue\",[28,[\"searchValue\"]],\"tournament-search-bar\",\"bg-white max-width-lg\"]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"filter\",[28,[\"searchTournaments\"]],\"filterValue\",[28,[\"filterValue\"]],[28,[\"filterOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"sort\",[28,[\"searchTournaments\"]],\"sortValue\",[28,[\"sortValue\"]],[28,[\"sortOptions\"]]]]],false],[0,\"\\n    \"],[1,[33,[\"select-input\"],null,[[\"class\",\"inputName\",\"onChange\",\"objectKey\",\"selectedValue\",\"options\"],[\"pd-xs bg-white\",\"order\",[28,[\"searchTournaments\"]],\"orderValue\",[28,[\"orderValue\"]],[28,[\"orderOptions\"]]]]],false],[0,\"\\n\"],[14],[0,\"\\n\"],[11,\"div\",[]],[15,\"class\",\"tournament-navbar-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"gt\"],[[28,[\"currentPage\"]],0],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,[33,[\"action\"],[[28,[null]],\"prevPage\"],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M15.75 19.5 8.25 12l7.5-7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"disabled\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M15.75 19.5 8.25 12l7.5-7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[6,[\"if\"],[[33,[\"lt\"],[[28,[\"currentPage\"]],[33,[\"subtract\"],[[28,[\"totalPages\"]],1],null]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,[33,[\"action\"],[[28,[null]],\"nextPage\"],null]]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m8.25 4.5 7.5 7.5-7.5 7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"disabled\"],[\"br-light-grey bg-white ft-grey pd-sq circle\",true,true]],{\"statements\":[[0,\"            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m8.25 4.5 7.5 7.5-7.5 7.5\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments.new\"],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\"],[\"br-green bg-green ft-white soft-corner\",\"Create\",true]],{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                    \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null]],\"locals\":[]},null],[14],[0,\"\\n\"],[18,\"default\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-navbar.hbs" } });
 });
 define("tournament-management-system/templates/components/tournament-participation-form", ["exports"], function (exports) {
   "use strict";
@@ -6528,7 +8059,7 @@ define("tournament-management-system/templates/components/tournament-participati
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "utXzdiTK", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-participation-form-wrapper\"],[13],[0,\"\\n    \"],[11,\"h2\",[]],[15,\"class\",\"tournament-participation-form-header\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[0,\"            Join Tournament\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"            Update Details\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null]],null,{\"statements\":[[0,\"            Unregister Tournament\\n        \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"and\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null],[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null]],null,{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"tournament-participation-team-buttons\"],[13],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"no-border bg-transparent no-padding ft-sm \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],0],null],\"ft-blue\",\"ft-grey\"],null]],null],\"Create Team\",[33,[\"action\"],[[28,[null]],\"setTeamRegistrationType\",0],null]]]],false],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"no-border bg-transparent no-padding ft-sm \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],1],null],\"ft-blue\",\"ft-grey\"],null]],null],\"Join Team\",[33,[\"action\"],[[28,[null]],\"setTeamRegistrationType\",1],null]]]],false],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \\n    \"],[11,\"form\",[]],[15,\"class\",\"tournament-participation-form\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"teamName\",\"create-teamname\",\"Team Name\",true,[28,[\"validationErrors\",\"teamName\"]]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],1],null]],null,{\"statements\":[[6,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"teamId\",\"join-teamlist\",\"Select Team\",[33,[\"object\"],[\"value\",\"\",\"selected\",true,\"disabled\",true,\"hidden\",true,\"displayName\",\"Select Team\"],null],true,[28,[\"validationErrors\",\"teamId\"]]]],{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                            \"],[11,\"option\",[]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[13],[1,[28,[\"team\",\"teamName\"]],false],[14],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},null],[0,\"                \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"teamName\",\"update-teamname\",\"New Team Name\",true,[28,[\"userParticipation\",\"teamName\"]],[28,[\"validationErrors\",\"teamName\"]]]]],false],[0,\"\\n        \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"        \"],[11,\"p\",[]],[15,\"class\",\"tournament-participation-form-info\"],[13],[0,\"\\n            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"fill\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"fill-rule\",\"evenodd\"],[15,\"d\",\"M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z\"],[15,\"clip-rule\",\"evenodd\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[0,\"                Registering for \\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"                Save changes for \\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null]],null,{\"statements\":[[0,\"                Are you sure? Want to unregister \\n            \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"            \"],[11,\"span\",[]],[13],[0,\"\\n                \"],[1,[28,[\"tournament\",\"tournamentName\"]],false],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-participation-form-buttons\"],[13],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-orange bg-white ft-orange soft-corner\",\"Cancel\",[33,[\"action\"],[[28,[null]],[28,[\"closeTournamentForm\"]]],null]]]],false],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"type\",\"buttonName\"],[[33,[\"concat\"],[\"ft-white soft-corner \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null],\"br-red bg-red\",\"br-blue bg-blue\"],null]],null],\"submit\",\"Confirm\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-participation-form.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "K6+26/Hb", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-participation-form-wrapper\"],[13],[0,\"\\n    \"],[11,\"h2\",[]],[15,\"class\",\"tournament-participation-form-header\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[0,\"            Join Tournament\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"            Update Details\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null]],null,{\"statements\":[[0,\"            Unregister Tournament\\n        \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"and\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null],[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null]],null,{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"tournament-participation-team-buttons\"],[13],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"no-border bg-transparent no-padding ft-sm \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],0],null],\"ft-blue\",\"ft-grey\"],null]],null],\"Create Team\",[33,[\"action\"],[[28,[null]],\"setTeamRegistrationType\",0],null]]]],false],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"no-border bg-transparent no-padding ft-sm \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],1],null],\"ft-blue\",\"ft-grey\"],null]],null],\"Join Team\",[33,[\"action\"],[[28,[null]],\"setTeamRegistrationType\",1],null]]]],false],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"    \\n    \"],[11,\"form\",[]],[15,\"class\",\"tournament-participation-form\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],0],null]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"teamName\",\"create-teamname\",\"Team Name\",true,[28,[\"validationErrors\",\"teamName\"]]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"teamRegistrationType\"]],1],null]],null,{\"statements\":[[6,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"teamId\",\"join-teamlist\",\"Select Team\",[33,[\"object\"],[\"value\",\"\",\"selected\",true,\"disabled\",true,\"hidden\",true,\"displayName\",\"Select Team\"],null],true,[28,[\"validationErrors\",\"teamId\"]]]],{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                            \"],[11,\"option\",[]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[13],[1,[28,[\"team\",\"teamName\"]],false],[14],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},null],[0,\"                \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"teamName\",\"update-teamname\",\"New Team Name\",true,[28,[\"userParticipation\",\"teamName\"]],[28,[\"validationErrors\",\"teamName\"]]]]],false],[0,\"\\n        \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"        \"],[11,\"p\",[]],[15,\"class\",\"tournament-participation-form-info\"],[13],[0,\"\\n            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"fill\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"fill-rule\",\"evenodd\"],[15,\"d\",\"M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z\"],[15,\"clip-rule\",\"evenodd\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[0,\"                Registering for \\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"                Save changes for \\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null]],null,{\"statements\":[[0,\"                Are you sure? Want to unregister \\n            \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"            \"],[11,\"span\",[]],[13],[0,\"\\n                \"],[1,[28,[\"tournament\",\"tournamentName\"]],false],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-participation-form-buttons\"],[13],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-light-grey bg-pale-white ft-grey soft-corner\",\"Cancel\",[33,[\"action\"],[[28,[null]],[28,[\"closeTournamentForm\"]]],null]]]],false],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"type\",\"buttonName\"],[[33,[\"concat\"],[\"ft-white soft-corner \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null],\"br-red bg-red\",\"br-blue bg-blue\"],null]],null],\"submit\",\"Confirm\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-participation-form.hbs" } });
 });
 define("tournament-management-system/templates/components/tournament-schedule-card", ["exports"], function (exports) {
   "use strict";
@@ -6536,7 +8067,7 @@ define("tournament-management-system/templates/components/tournament-schedule-ca
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "9D89thUD", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-info-box\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-info\"],[13],[0,\"\\n        \"],[11,\"strong\",[]],[15,\"class\",\"ft-lg wt-500 ft-night-black\"],[13],[1,[33,[\"tournament-event-round\"],[[28,[\"schedule\",\"tournamentEventRound\"]]],null],false],[14],[0,\"\\n        \"],[1,[33,[\"icon-label-item\"],null,[[\"itemIconClass\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"icon-sm\",\"images/calander-icon.svg\",\"ft-night-black\",\"On Date :\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date\"],[[28,[\"schedule\",\"tournamentEventDate\"]]],null]]]],false],[0,\"\\n        \"],[1,[33,[\"icon-label-item\"],null,[[\"itemIconClass\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"icon-sm\",\"images/location-icon.svg\",\"ft-night-black\",\"On Venue :\",\"ft-dark-grey wt-300\",[28,[\"schedule\",\"tournamentEventVenue\"]]]]],false],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-buttons\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-button-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"instance-lt\"],[[28,[\"schedule\",\"tournamentEventDate\"]]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\"],[\"br-blue bg-blue ft-white soft-corner pd-sq-sm icon-sm\",true,\"Edit event schedule\"]],{\"statements\":[[0,\"                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 128 128\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                        \"],[11,\"g\",[]],[15,\"transform\",\"matrix(1.0999999999999996,0,0,1.0999999999999996,-0.899999999999963,-11.910000133514387)\"],[13],[0,\"\\n                            \"],[11,\"path\",[]],[15,\"d\",\"M91.4 63.5 64.5 36.6 1 100.1V127h26.9zM9 119v-15.6l55.5-55.5 15.6 15.6L24.6 119zM55 119h44v8H55zM109 119h8v8h-8zM71.6 29.6l26.9 26.9L116.8 38 90 11.2zm26.8 15.5L82.9 29.6l7.1-7.1L105.5 38z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\"],[\"br-red bg-red ft-white soft-corner pd-sq-sm icon-sm\",true,\"Cancel event schedule\"]],{\"statements\":[[0,\"                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 512.001 512.001\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                        \"],[11,\"g\",[]],[13],[0,\"\\n                            \"],[11,\"path\",[]],[15,\"d\",\"M284.286 256.002 506.143 34.144c7.811-7.811 7.811-20.475 0-28.285-7.811-7.81-20.475-7.811-28.285 0L256 227.717 34.143 5.859c-7.811-7.811-20.475-7.811-28.285 0-7.81 7.811-7.811 20.475 0 28.285l221.857 221.857L5.858 477.859c-7.811 7.811-7.811 20.475 0 28.285a19.938 19.938 0 0 0 14.143 5.857 19.94 19.94 0 0 0 14.143-5.857L256 284.287l221.857 221.857c3.905 3.905 9.024 5.857 14.143 5.857s10.237-1.952 14.143-5.857c7.811-7.811 7.811-20.475 0-28.285L284.286 256.002z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"buttonName\",\"onClick\"],[\"br-grey bg-transparent ft-grey curved icon-xs pd-sm rrev\",true,[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null],\"Participants\",\"Teams\"],null],[33,[\"action\"],[[28,[null]],\"toggleContestantsPanelOpen\"],null]]],{\"statements\":[[6,[\"if\"],[[28,[\"isContestantsPanelOpen\"]]],null,{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                    \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m4.5 15.75 7.5-7.5 7.5 7.5\"],[13],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                    \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m19.5 8.25-7.5 7.5-7.5-7.5\"],[13],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},null],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[6,[\"if\"],[[28,[\"isContestantsPanelOpen\"]]],null,{\"statements\":[[0,\"    \"],[11,\"div\",[]],[15,\"class\",\"event-contestansts-wrapper\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"participant-card\"],null,[[\"participant\",\"refreshModel\"],[[28,[\"participant\"]],[33,[\"action\"],[[28,[null]],\"reloadContestants\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                \"],[11,\"p\",[]],[13],[0,\"No participants registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"team-card\"],null,[[\"team\",\"refreshModel\"],[[28,[\"team\"]],[33,[\"action\"],[[28,[null]],\"reloadContestants\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                \"],[11,\"p\",[]],[13],[0,\"No teams registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"        \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-schedule-card.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "zdQZmwFD", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-info-box\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-info\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-info-title\"],[13],[0,\"\\n            \"],[11,\"strong\",[]],[15,\"class\",\"ft-lg wt-500 ft-night-black\"],[13],[1,[33,[\"tournament-event-round\"],[[28,[\"schedule\",\"tournamentEventRound\"]]],null],false],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"instance-gt\"],[[28,[\"schedule\",\"tournamentEventDate\"]]],null],[33,[\"gt\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],0],null]],null]],null,{\"statements\":[[0,\"                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-status-box\"],[13],[0,\"\\n                    \"],[11,\"div\",[]],[16,\"class\",[34,[\"tournament-schedule-status-indicator \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],0],null],\"bg-blue\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],1],null],\"bg-light-grey\",\"bg-red\"],null]],null]]]],[13],[14],[0,\"\\n                    \"],[11,\"span\",[]],[15,\"class\",\"ft-sm wt-300 ft-night-black\"],[13],[1,[33,[\"if\"],[[33,[\"eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],0],null],\"Live\",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],1],null],\"Completed\",\"Cancelled\"],null]],null],false],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n        \"],[1,[33,[\"icon-label-item\"],null,[[\"itemIconClass\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"icon-sm\",\"images/calander-icon.svg\",\"ft-night-black\",\"On Date :\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date\"],[[28,[\"schedule\",\"tournamentEventDate\"]]],null]]]],false],[0,\"\\n        \"],[1,[33,[\"icon-label-item\"],null,[[\"itemIconClass\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"icon-sm\",\"images/location-icon.svg\",\"ft-night-black\",\"On Venue :\",\"ft-dark-grey wt-300\",[28,[\"schedule\",\"tournamentEventVenue\"]]]]],false],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-buttons\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-card-button-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"and\"],[[33,[\"not\"],[[28,[\"hideControls\"]]],null],[33,[\"n-eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],1],null]],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"instance-lt\"],[[28,[\"schedule\",\"tournamentEventDate\"]],[33,[\"instance-lt\"],[[28,[\"schedule\",\"tournamentEventDate\"]]],null]],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],0],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\",\"onClick\"],[\"br-transparent bg-transparent ft-blue circle ft-xs pd-sq icon-sm\",true,\"Edit event schedule\",[33,[\"action\"],[[28,[null]],\"openSchedulePopup\",2],null]]],{\"statements\":[[0,\"                            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 512 512\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                                \"],[11,\"path\",[]],[15,\"d\",\"M35.86 512A35.94 35.94 0 0 1 .31 471.39l12.84-98.12a40.81 40.81 0 0 1 11.56-23.47L363 11.51a39.42 39.42 0 0 1 55.67 0l81.82 81.82a39.42 39.42 0 0 1 0 55.67L162.2 487.29a40.78 40.78 0 0 1-23.47 11.56l-98.12 12.84a36.31 36.31 0 0 1-4.75.31zm26.45-129.09-10.05 76.83 76.83-10.05 328.52-328.52-66.78-66.78z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                                \"],[11,\"path\",[]],[15,\"d\",\"M406.86 232.28a24.93 24.93 0 0 1-17.68-7.28L287 122.82a25 25 0 0 1 35.4-35.36L424.54 189.6a25 25 0 0 1-17.68 42.68z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\",\"onClick\"],[\"br-transparent bg-transparent ft-red circle pd-sq icon-sm\",true,\"Cancel event schedule\",[33,[\"action\"],[[28,[null]],\"openSchedulePopup\",3],null]]],{\"statements\":[[0,\"                            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 512.001 512.001\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                                \"],[11,\"g\",[]],[13],[0,\"\\n                                    \"],[11,\"path\",[]],[15,\"d\",\"M284.286 256.002 506.143 34.144c7.811-7.811 7.811-20.475 0-28.285-7.811-7.81-20.475-7.811-28.285 0L256 227.717 34.143 5.859c-7.811-7.811-20.475-7.811-28.285 0-7.81 7.811-7.811 20.475 0 28.285l221.857 221.857L5.858 477.859c-7.811 7.811-7.811 20.475 0 28.285a19.938 19.938 0 0 0 14.143 5.857 19.94 19.94 0 0 0 14.143-5.857L256 284.287l221.857 221.857c3.905 3.905 9.024 5.857 14.143 5.857s10.237-1.952 14.143-5.857c7.811-7.811 7.811-20.475 0-28.285L284.286 256.002z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                                \"],[14],[0,\"\\n                            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"schedule\",\"tournamentEventStatus\"]],2],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\",\"onClick\"],[\"br-transparent bg-transparent ft-green circle pd-sq \",true,\"Reshedule event\",[33,[\"action\"],[[28,[null]],\"openSchedulePopup\",3],null]]],{\"statements\":[[0,\"                            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[15,\"class\",\"size-6\"],[13],[0,\"\\n                                \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99\"],[13],[14],[0,\"\\n                            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                    \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-blue bg-blue ft-white pd-sq soft-corner\",\"Publish Result\",[33,[\"action\"],[[28,[null]],\"openSchedulePopup\",4],null]]]],false],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},null],[6,[\"if\"],[[28,[\"linkTournament\"]]],null,{\"statements\":[[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"schedule\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration\"]],{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\"],[\"br-transparent bg-transparent ft-blue circle pd-sq\",true,\"View Tournament\"]],{\"statements\":[[0,\"                        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25\"],[13],[14],[0,\"\\n                        \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"buttonName\",\"onClick\"],[\"br-grey bg-transparent ft-grey curved icon-xs pd-sm rrev\",true,[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null],\"Participants\",\"Teams\"],null],[33,[\"action\"],[[28,[null]],\"toggleContestantsPanelOpen\"],null]]],{\"statements\":[[6,[\"if\"],[[28,[\"isContestantsPanelOpen\"]]],null,{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                    \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m4.5 15.75 7.5-7.5 7.5 7.5\"],[13],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"2.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                    \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"m19.5 8.25-7.5 7.5-7.5-7.5\"],[13],[14],[0,\"\\n                \"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},null],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[6,[\"if\"],[[28,[\"isContestantsPanelOpen\"]]],null,{\"statements\":[[0,\"    \"],[11,\"div\",[]],[15,\"class\",\"event-contestansts-wrapper\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"participant-card\"],null,[[\"class\",\"participant\",\"refreshModel\"],[[33,[\"if\"],[[33,[\"eq\"],[[28,[\"participant\",\"participantId\"]],[28,[\"schedule\",\"tournamentEventWinnerId\"]]],null],\"winning-contestant\",\"\"],null],[28,[\"participant\"]],[33,[\"action\"],[[28,[null]],\"reloadContestants\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                \"],[11,\"p\",[]],[13],[0,\"No participants registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"team-card\"],null,[[\"class\",\"team\",\"refreshModel\"],[[33,[\"if\"],[[33,[\"eq\"],[[28,[\"team\",\"teamId\"]],[28,[\"schedule\",\"tournamentEventWinnerId\"]]],null],\"winning-contestant\",\"\"],null],[28,[\"team\"]],[33,[\"action\"],[[28,[null]],\"reloadContestants\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                \"],[11,\"p\",[]],[13],[0,\"No teams registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"        \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-schedule-card.hbs" } });
 });
 define("tournament-management-system/templates/components/tournament-schedule-form", ["exports"], function (exports) {
   "use strict";
@@ -6544,7 +8075,7 @@ define("tournament-management-system/templates/components/tournament-schedule-fo
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "LLGRU0LJ", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-schedule-form-wrapper\"],[13],[0,\"\\n    \"],[11,\"h2\",[]],[15,\"class\",\"tournament-schedule-form-header\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"            Schedule Event\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],2],null]],null,{\"statements\":[[0,\"            Update Event\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null]],null,{\"statements\":[[0,\"            Cancel Event\\n        \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n    \\n    \"],[11,\"form\",[]],[15,\"class\",\"tournament-schedule-form\"],[13],[0,\"\\n\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"tournamentEventDate\",\"schedule-eventdate\",\"Event Date (dd/mm/yyyy)\",true,[28,[\"validationErrors\",\"tournamentEventDate\"]]]]],false],[0,\"\\n            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"tournamentEventVenue\",\"schedule-eventvenue\",\"Event Venue\",true,[28,[\"validationErrors\",\"tournamentEventVenue\"]]]]],false],[0,\"\\n            \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"options\",\"errorMessage\"],[\"tournamentEventRound\",\"schedule-eventround\",\"Event Round\",[33,[\"object\"],[\"value\",\"\",\"selected\",true,\"disabled\",true,\"hidden\",true,\"displayName\",\"Select Round\"],null],[28,[\"tournamentEventRoundOptions\"]],[28,[\"validationErrors\",\"tournamentEventRound\"]]]]],false],[0,\"\\n\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants-wrapper\"],[13],[0,\"\\n                \"],[11,\"p\",[]],[15,\"class\",\"tournament-schedule-select-contestants-label\"],[13],[0,\"Select event contestants \"],[11,\"span\",[]],[15,\"class\",\"ft-red\"],[13],[0,\"*\"],[14],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n                                    \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"participantId\"],[16,\"id\",[34,[\"schedule-participant-\",[28,[\"participant\",\"participantId\"]]]]],[16,\"value\",[28,[\"participant\",\"participantId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"schedule-participant-\",[28,[\"participant\",\"participantId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"participant\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No participants available\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n                                    \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"teamId\"],[16,\"id\",[34,[\"schedule-team-\",[28,[\"team\",\"teamId\"]]]]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"schedule-team-\",[28,[\"team\",\"teamId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"team\",\"teamName\"]],false],[14],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-sm ft-grey\"],[13],[1,[28,[\"team\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No teams available\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                    \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null]],null,{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[15,\"class\",\"input-error\"],[13],[1,[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"\\n        \"],[11,\"p\",[]],[15,\"class\",\"tournament-schedule-form-info\"],[13],[0,\"\\n            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"fill\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"fill-rule\",\"evenodd\"],[15,\"d\",\"M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z\"],[15,\"clip-rule\",\"evenodd\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"                Schedule the event\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],2],null]],null,{\"statements\":[[0,\"                Want to save changes?\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null]],null,{\"statements\":[[0,\"                Are you sure? Want to cancel the schedule\\n            \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"        \"],[14],[0,\"\\n\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-form-buttons\"],[13],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-orange bg-white ft-orange soft-corner\",\"Cancel\",[33,[\"action\"],[[28,[null]],[28,[\"closeTournamentScheduleForm\"]]],null]]]],false],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"type\",\"buttonName\"],[[33,[\"concat\"],[\"ft-white soft-corner \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null],\"br-red bg-red\",\"br-blue bg-blue\"],null]],null],\"submit\",\"Confirm\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-schedule-form.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "soG7n7dF", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"tournament-schedule-form-wrapper\"],[13],[0,\"\\n    \"],[11,\"h2\",[]],[15,\"class\",\"tournament-schedule-form-header\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"            Schedule Event\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],2],null]],null,{\"statements\":[[0,\"            Update Event\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"eq\"],[[28,[\"selectedSchedule\",\"tournamentEventStatus\"]],2],null]],null,{\"statements\":[[0,\"                Cancel Event\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                Reschedule Event\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],4],null]],null,{\"statements\":[[0,\"            Finalize Result\\n        \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n    \\n    \"],[11,\"form\",[]],[15,\"class\",\"tournament-schedule-form\"],[13],[0,\"\\n\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"tournamentEventDate\",\"schedule-eventdate\",\"Event Date (dd/mm/yyyy)\",true,[28,[\"validationErrors\",\"tournamentEventDate\"]]]]],false],[0,\"\\n            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"errorMessage\"],[\"tournamentEventVenue\",\"schedule-eventvenue\",\"Event Venue\",true,[28,[\"validationErrors\",\"tournamentEventVenue\"]]]]],false],[0,\"\\n            \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"options\",\"errorMessage\"],[\"tournamentEventRound\",\"schedule-eventround\",\"Event Round\",[33,[\"object\"],[\"value\",\"\",\"selected\",true,\"disabled\",true,\"hidden\",true,\"displayName\",\"Select Round\"],null],[28,[\"tournamentEventRoundOptions\"]],[28,[\"validationErrors\",\"tournamentEventRound\"]]]]],false],[0,\"\\n\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants-wrapper\"],[13],[0,\"\\n                \"],[11,\"p\",[]],[15,\"class\",\"tournament-schedule-select-contestants-label\"],[13],[0,\"Select event contestants \"],[11,\"span\",[]],[15,\"class\",\"ft-red\"],[13],[0,\"*\"],[14],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n                                    \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"participantId\"],[16,\"id\",[34,[\"schedule-participant-\",[28,[\"participant\",\"participantId\"]]]]],[16,\"value\",[28,[\"participant\",\"participantId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"schedule-participant-\",[28,[\"participant\",\"participantId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"participant\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No participants available\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n                                    \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"teamId\"],[16,\"id\",[34,[\"schedule-team-\",[28,[\"team\",\"teamId\"]]]]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"schedule-team-\",[28,[\"team\",\"teamId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"team\",\"teamName\"]],false],[14],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-sm ft-grey\"],[13],[1,[28,[\"team\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No teams available\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                    \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null]],null,{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[15,\"class\",\"input-error\"],[13],[1,[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],2],null]],null,{\"statements\":[[0,\"            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"tournamentEventDate\",\"update-eventdate\",\"Event Date (dd/mm/yyyy)\",[33,[\"millis-to-date\"],[[28,[\"selectedSchedule\",\"tournamentEventDate\"]]],null],true,[28,[\"validationErrors\",\"tournamentEventDate\"]]]]],false],[0,\"\\n            \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"isRequired\",\"errorMessage\"],[\"tournamentEventVenue\",\"update-eventvenue\",\"Event Venue\",[28,[\"selectedSchedule\",\"tournamentEventVenue\"]],true,[28,[\"validationErrors\",\"tournamentEventVenue\"]]]]],false],[0,\"\\n            \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"options\",\"errorMessage\"],[\"tournamentEventRound\",\"update-eventround\",\"Event Round\",[33,[\"object\"],[\"value\",\"\",\"selected\",true,\"disabled\",true,\"hidden\",true,\"displayName\",\"Select Round\"],null],[28,[\"tournamentEventRoundOptions\"]],[28,[\"validationErrors\",\"tournamentEventRound\"]]]]],false],[0,\"\\n\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants-wrapper\"],[13],[0,\"\\n                \"],[11,\"p\",[]],[15,\"class\",\"tournament-schedule-select-contestants-label\"],[13],[0,\"Select event contestants \"],[11,\"span\",[]],[15,\"class\",\"ft-red\"],[13],[0,\"*\"],[14],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"contains\"],[[28,[\"eventContestants\"]],[28,[\"participant\"]],\"participantId\"],null]],null,{\"statements\":[[0,\"                                        \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"participantId\"],[16,\"id\",[34,[\"update-participant-\",[28,[\"participant\",\"participantId\"]]]]],[16,\"value\",[28,[\"participant\",\"participantId\"]],null],[15,\"hidden\",\"true\"],[15,\"checked\",\"true\"],[13],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                        \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"participantId\"],[16,\"id\",[34,[\"update-participant-\",[28,[\"participant\",\"participantId\"]]]]],[16,\"value\",[28,[\"participant\",\"participantId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"update-participant-\",[28,[\"participant\",\"participantId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"participant\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No participants available\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"contains\"],[[28,[\"eventContestants\"]],[28,[\"team\"]],\"teamId\"],null]],null,{\"statements\":[[0,\"                                        \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"teamId\"],[16,\"id\",[34,[\"update-team-\",[28,[\"team\",\"teamId\"]]]]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[15,\"hidden\",\"true\"],[15,\"checked\",\"true\"],[13],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                        \"],[11,\"input\",[]],[15,\"type\",\"checkbox\"],[15,\"name\",\"teamId\"],[16,\"id\",[34,[\"update-team-\",[28,[\"team\",\"teamId\"]]]]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"update-team-\",[28,[\"team\",\"teamId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"team\",\"teamName\"]],false],[14],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-sm ft-grey\"],[13],[1,[28,[\"team\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No teams available\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                    \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null]],null,{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[15,\"class\",\"input-error\"],[13],[1,[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],4],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants-wrapper\"],[13],[0,\"\\n                \"],[11,\"p\",[]],[15,\"class\",\"tournament-schedule-select-contestants-label\"],[13],[0,\"Select event contestants \"],[11,\"span\",[]],[15,\"class\",\"ft-red\"],[13],[0,\"*\"],[14],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestants\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n                                    \"],[11,\"input\",[]],[15,\"type\",\"radio\"],[15,\"name\",\"tournamentEventWinnerId\"],[16,\"id\",[34,[\"result-participant-\",[28,[\"participant\",\"participantId\"]]]]],[16,\"value\",[28,[\"participant\",\"participantId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"result-participant-\",[28,[\"participant\",\"participantId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"participant\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No participants available\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                                \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-select-contestant-card\"],[13],[0,\"\\n                                    \"],[11,\"input\",[]],[15,\"type\",\"radio\"],[15,\"name\",\"tournamentEventWinnerId\"],[16,\"id\",[34,[\"result-team-\",[28,[\"team\",\"teamId\"]]]]],[16,\"value\",[28,[\"team\",\"teamId\"]],null],[15,\"hidden\",\"true\"],[13],[14],[0,\"\\n                                    \"],[11,\"label\",[]],[16,\"for\",[34,[\"result-team-\",[28,[\"team\",\"teamId\"]]]]],[15,\"class\",\"schedule-contestant-card\"],[13],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-info\"],[13],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-night-black\"],[13],[1,[28,[\"team\",\"teamName\"]],false],[14],[0,\"\\n                                            \"],[11,\"span\",[]],[15,\"class\",\"ft-sm ft-grey\"],[13],[1,[28,[\"team\",\"userName\"]],false],[14],[0,\"\\n                                        \"],[14],[0,\"\\n                                        \"],[11,\"div\",[]],[15,\"class\",\"schedule-contestant-card-extra\"],[13],[0,\"\\n\"],[0,\"                                        \"],[14],[0,\"\\n                                    \"],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                            \"],[11,\"p\",[]],[13],[0,\"No teams available\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                    \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null]],null,{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[15,\"class\",\"input-error\"],[13],[1,[33,[\"or\"],[[28,[\"validationErrors\",\"participantId\"]],[28,[\"validationErrors\",\"teamId\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n        \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"\\n        \"],[11,\"p\",[]],[15,\"class\",\"tournament-schedule-form-info\"],[13],[0,\"\\n            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"fill\",\"currentColor\"],[13],[0,\"\\n                \"],[11,\"path\",[]],[15,\"fill-rule\",\"evenodd\"],[15,\"d\",\"M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm8.706-1.442c1.146-.573 2.437.463 2.126 1.706l-.709 2.836.042-.02a.75.75 0 0 1 .67 1.34l-.04.022c-1.147.573-2.438-.463-2.127-1.706l.71-2.836-.042.02a.75.75 0 1 1-.671-1.34l.041-.022ZM12 9a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z\"],[15,\"clip-rule\",\"evenodd\"],[13],[14],[0,\"\\n            \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"                Schedule the event\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],2],null]],null,{\"statements\":[[0,\"                Want to save changes?\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"eq\"],[[28,[\"selectedSchedule\",\"tournamentEventStatus\"]],2],null]],null,{\"statements\":[[0,\"                    Are you sure? Want to cancel the schedule\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                    Do you want to reschedule the event?\\n\"]],\"locals\":[]}],[0,\"            \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"        \"],[14],[0,\"\\n\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-schedule-form-buttons\"],[13],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-light-grey bg-pale-white ft-grey soft-corner\",\"Cancel\",[33,[\"action\"],[[28,[null]],[28,[\"closeTournamentScheduleForm\"]]],null]]]],false],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"type\",\"buttonName\"],[[33,[\"concat\"],[\"ft-white soft-corner \",[33,[\"if\"],[[33,[\"and\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null],[33,[\"n-eq\"],[[28,[\"selectedSchedule\",\"tournamentEventStatus\"]],2],null]],null],\"br-red bg-red\",\"br-blue bg-blue\"],null]],null],\"submit\",\"Confirm\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/tournament-schedule-form.hbs" } });
 });
 define("tournament-management-system/templates/components/user-card", ["exports"], function (exports) {
   "use strict";
@@ -6552,7 +8083,7 @@ define("tournament-management-system/templates/components/user-card", ["exports"
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "iBx5crRq", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"user-card-image-box\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"user-card-profile-img\"],[13],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[11,\"div\",[]],[15,\"class\",\"user-card-detail-box\"],[13],[0,\"\\n    \"],[11,\"p\",[]],[15,\"class\",\"user-card-item\"],[13],[11,\"span\",[]],[15,\"class\",\"ft-grey\"],[13],[1,[28,[\"user\",\"userId\"]],false],[14],[0,\" - \"],[11,\"strong\",[]],[15,\"class\",\"capitalize ft-lg wt-500\"],[13],[1,[28,[\"user\",\"userName\"]],false],[14],[14],[0,\"\\n    \"],[11,\"p\",[]],[15,\"class\",\"user-card-item ft-sm ft-grey\"],[13],[1,[28,[\"user\",\"email\"]],false],[14],[0,\"\\n    \"],[11,\"span\",[]],[15,\"class\",\"user-card-item ft-sm wt-300\"],[13],[1,[33,[\"user-role\"],[[28,[\"user\",\"role\"]]],null],false],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/user-card.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "vMmFb67n", "block": "{\"statements\":[[11,\"div\",[]],[15,\"class\",\"user-card-image-box\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"user-card-profile-img\"],[13],[14],[0,\"\\n\"],[6,[\"unless\"],[[28,[\"hideMenu\"]]],null,{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"user-card-menu-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"user-card-menu-box\"],[13],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"onClick\"],[\"br-transparent bg-transparent ft-grey icon-lg pd-sq-sm circle\",true,[33,[\"action\"],[[28,[null]],\"handleMenuVisibility\"],null]]],{\"statements\":[[0,\"                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                        \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM12.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0ZM18.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z\"],[13],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"if\"],[[28,[\"isMenuOpen\"]]],null,{\"statements\":[[0,\"                    \"],[11,\"div\",[]],[15,\"class\",\"user-card-menu\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[0,\"                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"full-width bg-white no-border\",\"Edit\",[33,[\"action\"],[[28,[null]],\"selectAndOpenEditForm\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"full-width bg-white no-border\",\"Details\",[33,[\"action\"],[[28,[null]],\"viewUserDetails\"],null]]]],false],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[14],[0,\"\\n\"],[11,\"div\",[]],[15,\"class\",\"user-card-detail-box\"],[13],[0,\"\\n    \"],[11,\"p\",[]],[15,\"class\",\"user-card-item\"],[13],[11,\"span\",[]],[15,\"class\",\"ft-grey\"],[13],[1,[28,[\"user\",\"userId\"]],false],[14],[0,\" - \"],[11,\"strong\",[]],[15,\"class\",\"capitalize ft-lg wt-500\"],[13],[1,[28,[\"user\",\"userName\"]],false],[14],[14],[0,\"\\n    \"],[11,\"p\",[]],[15,\"class\",\"user-card-item ft-sm ft-grey\"],[13],[1,[28,[\"user\",\"email\"]],false],[14],[0,\"\\n    \"],[11,\"span\",[]],[15,\"class\",\"user-card-item ft-sm wt-300\"],[13],[1,[33,[\"user-role\"],[[28,[\"user\",\"role\"]]],null],false],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[18,\"default\"],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[\"default\"],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/components/user-card.hbs" } });
 });
 define("tournament-management-system/templates/dashboard", ["exports"], function (exports) {
   "use strict";
@@ -6560,7 +8091,7 @@ define("tournament-management-system/templates/dashboard", ["exports"], function
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "kPCvG/bO", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"section dashboard bg-pale-white\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],0],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null]],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"registeredActiveTournaments\"]]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-register-tournaments\"],[13],[0,\"\\n                \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl\"],[13],[0,\"Registered tournaments\"],[14],[0,\"\\n                \"],[1,[33,[\"tournament-card-slider\"],null,[[\"class\",\"tournaments\",\"automaticScroll\",\"autoFit\"],[\"align-left full-width\",[28,[\"registeredActiveTournaments\"]],true,true]]],false],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"upcomingSchedules\"]]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-upcoming-schedules\"],[13],[0,\"\\n                 \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl \"],[13],[0,\"Upcoming Schedules\"],[14],[0,\"\\n                 \"],[11,\"div\",[]],[15,\"class\",\"dashboard-upcoming-schedules-wrapper\"],[13],[0,\"\\n\"],[6,[\"each\"],[[28,[\"upcomingSchedules\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"tournament-schedule-card\"],null,[[\"schedule\"],[[28,[\"schedule\"]]]]],false],[0,\"\\n\"]],\"locals\":[\"schedule\"]},null],[0,\"                 \"],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"featuredTournaments\"]]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-register-tournaments\"],[13],[0,\"\\n                \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl\"],[13],[0,\"Featured tournaments\"],[14],[0,\"\\n                \"],[1,[33,[\"tournament-card-slider\"],null,[[\"class\",\"tournaments\",\"automaticScroll\",\"autoFit\"],[\"align-left full-width\",[28,[\"featuredTournaments\"]],true,true]]],false],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"\\n\"],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"dashboard-unapproved-organizations\"],[13],[0,\"\\n            \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl \"],[13],[0,\"Unapproved Organizations\"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"unapprovedOrganizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"unapprovedOrganizations\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[13],[0,\"All organization has access\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"dashboard-approved-organizations\"],[13],[0,\"\\n            \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl \"],[13],[0,\"Approved Organizations\"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"approvedOrganizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"approvedOrganizations\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[13],[0,\"No organization has access\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"dashboard-banned-organizations\"],[13],[0,\"\\n            \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl\"],[13],[0,\"Banned Organizations\"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"bannedOrganizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"bannedOrganizations\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[13],[0,\"No organization are blocked\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"]],\"locals\":[]},null]],\"locals\":[]}],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/dashboard.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "0jitTBIC", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"section dashboard bg-pale-white\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],0],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null]],null]],null,{\"statements\":[[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"registeredActiveTournaments\"]]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-tournaments-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"dashboard-tournaments-header\"],[13],[0,\"\\n                    \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl\"],[13],[0,\"Registered tournaments\"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments\",[33,[\"query-params\"],null,[[\"filter\"],[\"registered\"]]]],null,{\"statements\":[[0,\"                        View all\\n                        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25\"],[13],[14],[0,\"\\n                        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                \"],[14],[0,\"\\n                \"],[1,[33,[\"tournament-card-slider\"],null,[[\"class\",\"tournaments\",\"automaticScroll\",\"autoFit\"],[\"align-left full-width\",[28,[\"registeredActiveTournaments\"]],true,true]]],false],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"        \\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"upcomingSchedules\"]]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-schedules-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"dashboard-tournaments-header\"],[13],[0,\"\\n                    \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl\"],[13],[0,\"Upcoming Schedules\"],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"dashboard-schedules-wrapper\"],[13],[0,\"\\n\"],[6,[\"each\"],[[28,[\"upcomingSchedules\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"tournament-schedule-card\"],null,[[\"schedule\",\"hideControls\",\"linkTournament\"],[[28,[\"schedule\"]],true,true]]],false],[0,\"\\n\"]],\"locals\":[\"schedule\"]},null],[0,\"                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"featuredTournaments\"]]],null]],null,{\"statements\":[[0,\"            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-tournaments-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"dashboard-tournaments-header\"],[13],[0,\"\\n                    \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl\"],[13],[0,\"Featured tournaments\"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"tournaments\",[33,[\"query-params\"],null,[[\"page\"],[[31]]]]],null,{\"statements\":[[0,\"                        View all\\n                        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25\"],[13],[14],[0,\"\\n                        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                \"],[14],[0,\"\\n                \"],[1,[33,[\"tournament-card-slider\"],null,[[\"class\",\"tournaments\",\"automaticScroll\",\"autoFit\"],[\"align-left full-width\",[28,[\"featuredTournaments\"]],true,true]]],false],[0,\"\\n            \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"\\n\"],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organizations-box\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organizations-header\"],[13],[0,\"\\n                \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl \"],[13],[0,\"Unapproved Organizations\"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"organizations.index\",[33,[\"query-params\"],null,[[\"filter\",\"page\"],[\"unapprovedorganizations\",[31]]]]],null,{\"statements\":[[0,\"                    View all\\n                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                        \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25\"],[13],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"unapprovedOrganizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"unapprovedOrganizations\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[13],[0,\"All organization has access\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organizations-box\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organizations-header\"],[13],[0,\"\\n                \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl \"],[13],[0,\"Approved Organizations\"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"organizations.index\",[33,[\"query-params\"],null,[[\"filter\",\"page\"],[\"approvedorganizations\",[31]]]]],null,{\"statements\":[[0,\"                    View all\\n                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                        \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25\"],[13],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"approvedOrganizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"approvedOrganizations\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[13],[0,\"No organization has access\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organizations-box\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organizations-header\"],[13],[0,\"\\n                \"],[11,\"h2\",[]],[15,\"class\",\"ft-before-blue ft-night-black wt-500 ft-xl \"],[13],[0,\"Banned Organizations\"],[14],[0,\"\\n\"],[6,[\"link-to\"],[\"organizations.index\",[33,[\"query-params\"],null,[[\"filter\",\"page\"],[\"bannedorganizations\",[31]]]]],null,{\"statements\":[[0,\"                    View all\\n                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                        \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25\"],[13],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"dashboard-organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"bannedOrganizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"bannedOrganizations\"]]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                    \"],[11,\"p\",[]],[13],[0,\"No organization are blocked\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"]],\"locals\":[]},null]],\"locals\":[]}],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/dashboard.hbs" } });
 });
 define("tournament-management-system/templates/index", ["exports"], function (exports) {
   "use strict";
@@ -6584,7 +8115,7 @@ define("tournament-management-system/templates/not-found", ["exports"], function
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "CFM9vhUO", "block": "{\"statements\":[[11,\"h1\",[]],[13],[0,\"404 ☹️\"],[14],[0,\"\\n\"],[11,\"h2\",[]],[13],[0,\"Page not found\"],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/not-found.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "F7npPvWX", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"section container flex ai-center jc-center fd-column\"],[13],[0,\"\\n    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"width\",\"100\"],[15,\"height\",\"100\"],[15,\"viewBox\",\"0 0 60 60\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[15,\"class\",\"\"],[13],[0,\"\\n        \"],[11,\"g\",[]],[13],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#5271ff\"],[15,\"d\",\"m59 7.783-1.551 41.972a6.006 6.006 0 0 1-6.217 5.775l-10.993-.406-3.813-5.144 7.216-5.738-7.773-6.29 7.253-6.738L37.31 26l6.254-6.775-8.7-8.326 3-9.9 15.36.566A6 6 0 0 1 59 7.783z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#f5f5f5\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#5271ff\"],[15,\"d\",\"M53.221 1.566 37.861 1l-.033.109 12.393.457A6 6 0 0 1 56 7.783l-1.552 41.972a6 6 0 0 1-5.08 5.706l1.864.069a6 6 0 0 0 6.216-5.775L59 7.783a6 6 0 0 0-5.779-6.217z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#cfd8dc\"],[15,\"class\",\"\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#5271ff\"],[15,\"d\",\"m11.247 4.551 7.487-1.473-.651 10.322 10.374 6.113-4.536 8.026 6.852 3.749-5.518 8.219 9.007 4.343-5.71 7.238 4.889 4.134L14.8 58.886a6 6 0 0 1-7.045-4.729L1 19.815z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"blue\"],[15,\"class\",\"\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"fill\",\"#f5f5f5\"],[15,\"d\",\"m11.247 4.551 1.353 6.868a6 6 0 0 1-4.73 7.045L1 19.815z\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#9e9e9e\"],[15,\"class\",\"\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"d\",\"M53.258.567 37.9 0a.953.953 0 0 0-1 .71l-3 9.9a1 1 0 0 0 .266 1.013l7.989 7.647-5.587 6.052a1 1 0 0 0-.264.726.993.993 0 0 0 .331.7l5 4.486-6.447 5.986a1 1 0 0 0 .052 1.509l6.8 5.506L35.8 49.2a1 1 0 0 0-.182 1.379l3.814 5.144a1 1 0 0 0 .766.4l10.992.405c.089 0 .177.005.264.005a7 7 0 0 0 6.989-6.741L60 7.82A7.007 7.007 0 0 0 53.258.567zm3.191 49.151a4.968 4.968 0 0 1-1.595 3.482 5.067 5.067 0 0 1-3.585 1.335l-10.513-.387-2.951-3.982 6.46-5.136a1 1 0 0 0 .006-1.56L37.4 37.9l6.4-5.954a1 1 0 0 0-.013-1.476l-5.057-4.539L44.3 19.9a1 1 0 0 0-.043-1.4L36 10.6l2.6-8.573 14.589.538A5.007 5.007 0 0 1 58 7.746z\"],[15,\"fill\",\"#000000\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n            \"],[11,\"path\",[]],[15,\"d\",\"M34.7 42.948 26.728 39.1l4.872-7.257a1 1 0 0 0-.351-1.435l-5.959-3.262L29.327 20a1 1 0 0 0-.362-1.354l-9.845-5.8.612-9.706a1 1 0 0 0-1.191-1.04l-7.487 1.469a1 1 0 0 0-.637.424L.17 19.257a1 1 0 0 0-.151.751l6.752 34.343a7 7 0 0 0 8.22 5.517L33.635 56.2a1 1 0 0 0 .452-1.745l-4.151-3.511 5.112-6.478a1 1 0 0 0-.351-1.52zM10.732 7.113l.884 4.5a5 5 0 0 1-3.941 5.87l-4.5.885zm17.035 43.354a1 1 0 0 0 .139 1.383l3.3 2.791L14.6 57.905a5 5 0 0 1-5.87-3.941L2.174 20.6l5.888-1.158a7 7 0 0 0 5.517-8.219l-1.157-5.884 5.232-1.029-.569 9.024a1 1 0 0 0 .49.925l9.525 5.615-4.053 7.171a1 1 0 0 0 .39 1.369l5.891 3.223-4.907 7.31a1 1 0 0 0 .395 1.458l7.885 3.8z\"],[15,\"fill\",\"#000000\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"h1\",[]],[15,\"class\",\"ft-night-black ft-9xl wt-500\"],[13],[0,\"404 \"],[14],[0,\"\\n    \"],[11,\"h2\",[]],[15,\"class\",\"ft-night-black ft-6xl wt-500\"],[13],[0,\"Page not found\"],[14],[0,\"\\n    \"],[6,[\"link-to\"],[\"index\"],[[\"class\"],[\"ft-blue no-decoration\"]],{\"statements\":[[0,\"Go to Home\"]],\"locals\":[]},null],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/not-found.hbs" } });
 });
 define("tournament-management-system/templates/organizations", ["exports"], function (exports) {
   "use strict";
@@ -6600,7 +8131,7 @@ define("tournament-management-system/templates/organizations/index", ["exports"]
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "58i2bX95", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section bg-pale-white organizations\"],[13],[0,\"\\n    \"],[1,[33,[\"organization-navbar\"],null,[[\"searchOrganizations\"],[[33,[\"action\"],[[28,[null]],\"searchOrganizations\"],null]]]],false],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"organizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"organizations\"]]],null,{\"statements\":[[0,\"                \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"            \"],[11,\"p\",[]],[13],[0,\"No organizations found\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/organizations/index.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "WR4O/Bzc", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section bg-pale-white organizations\"],[13],[0,\"\\n    \"],[1,[33,[\"organization-navbar\"],null,[[\"searchOrganizations\",\"searchValue\",\"filterValue\",\"sortValue\",\"orderValue\",\"currentPage\",\"totalPages\"],[[33,[\"action\"],[[28,[null]],\"searchOrganizations\"],null],[28,[\"searchValue\"]],[28,[\"filterValue\"]],[28,[\"sortValue\"]],[28,[\"orderValue\"]],[28,[\"currentPage\"]],[28,[\"totalPages\"]]]]],false],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"organization-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"organizations\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"organizations\"]]],null,{\"statements\":[[0,\"                \"],[1,[33,[\"organization-card\"],null,[[\"class\",\"organization\",\"changeOrganizationStatus\"],[\"bg-white\",[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"changeOrganizationStatus\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"organization\"]},null]],\"locals\":[]},{\"statements\":[[0,\"            \"],[11,\"p\",[]],[13],[0,\"No organizations found\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/organizations/index.hbs" } });
 });
 define("tournament-management-system/templates/organizations/organization", ["exports"], function (exports) {
   "use strict";
@@ -6608,7 +8139,7 @@ define("tournament-management-system/templates/organizations/organization", ["ex
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "jqWI5tZR", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section organization bg-pale-white\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"org-wrapper bg-white\"],[13],[0,\"\\n        \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"no-icon\",\"ft-3xl wt-600 txt-wrap capitalize\",[28,[\"organization\",\"organizationName\"]]]]],false],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"org-details-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"org-details-box\"],[13],[0,\"\\n                \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"location-icon\",\"txt-wrap\",[28,[\"organization\",\"organizationAddress\"]]]]],false],[0,\"\\n                \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemName\"],[\"calander-icon\",[28,[\"organization\",\"startedYear\"]]]]],false],[0,\"\\n                \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"badge-icon\",\"uppercase ft-sm\",[33,[\"organization-status\"],[[28,[\"organization\",\"organizationStatus\"]]],null]]]],false],[0,\"\\n                \"],[11,\"p\",[]],[15,\"class\",\"txt-wrap ft-sm ft-light-grey\"],[13],[0,\"Created at \"],[1,[33,[\"millis-to-date-time\"],[[28,[\"organization\",\"organizationCreatedAt\"]]],null],false],[14],[0,\"\\n            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"org-admin-details-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"org-admin-details-inner-box\"],[13],[0,\"\\n                    \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"admin-icon\",\"elipsis\",[33,[\"or\"],[[28,[\"admin\",\"userName\"]],\"Not assigned\"],null]]]],false],[0,\"\\n                    \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"mail-icon\",\"elipsis\",[33,[\"or\"],[[28,[\"admin\",\"email\"]],\"Not assigned\"],null]]]],false],[0,\"\\n                \"],[14],[0,\"  \\n                \"],[11,\"div\",[]],[15,\"class\",\"org-admin-details-button-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"or\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null]],null,{\"statements\":[[0,\"                        \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-blue bg-blue ft-white\",\"Edit Organization\",[33,[\"action\"],[[28,[null]],\"setIsOrganizationFormOpen\",true],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n    \"],[1,[33,[\"organization-user-navbar\"],null,[[\"searchOrganizationUsers\",\"openAddUserForm\"],[[33,[\"action\"],[[28,[null]],\"searchOrganizationUsers\"],null],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",1],null]]]],false],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"org-users-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"users\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"users\"]]],null,{\"statements\":[[0,\"                \"],[1,[33,[\"user-card\"],null,[[\"class\",\"user\"],[\"bg-white\",[28,[\"user\"]]]]],false],[0,\"\\n\"]],\"locals\":[\"user\"]},null]],\"locals\":[]},{\"statements\":[[0,\"            \"],[11,\"p\",[]],[13],[0,\"No users found\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[6,[\"if\"],[[28,[\"isOrganizationFormOpen\"]]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-form\"],null,[[\"organization\",\"admin\",\"handleOrganizationUpdate\",\"closeOrganizationForm\",\"refreshModel\"],[[28,[\"organization\"]],[28,[\"admin\"]],[33,[\"action\"],[[28,[null]],\"updateOrganizationDetails\"],null],[33,[\"action\"],[[28,[null]],\"setIsOrganizationFormOpen\",false],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],1],null]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"organizationUserFormType\",\"organization\",\"closeOrganizationUserForm\",\"refreshModel\"],[[28,[\"organizationUserFormType\"]],[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],2],null]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"organizationUserFormType\",\"organization\",\"user\",\"closeOrganizationUserForm\",\"refreshModel\"],[[28,[\"organizationUserFormType\"]],[28,[\"organization\"]],[28,[\"selectedUser\"]],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}],[0,\"\\n\"],[1,[26,[\"outlet\"]],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/organizations/organization.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "1cQf4yiK", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section organization bg-pale-white\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"org-wrapper bg-white\"],[13],[0,\"\\n\"],[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"org-details-header-box\"],[13],[0,\"\\n            \"],[11,\"strong\",[]],[15,\"class\",\"ft-3xl wt-600 txt-wrap capitalize\"],[13],[1,[28,[\"organization\",\"organizationName\"]],false],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-blue bg-blue ft-white rrev icon-xs\",\"Edit\",true,[33,[\"action\"],[[28,[null]],\"setIsOrganizationFormOpen\",true],null]]],{\"statements\":[[0,\"                    \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 512 512\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                        \"],[11,\"path\",[]],[15,\"d\",\"M35.86 512A35.94 35.94 0 0 1 .31 471.39l12.84-98.12a40.81 40.81 0 0 1 11.56-23.47L363 11.51a39.42 39.42 0 0 1 55.67 0l81.82 81.82a39.42 39.42 0 0 1 0 55.67L162.2 487.29a40.78 40.78 0 0 1-23.47 11.56l-98.12 12.84a36.31 36.31 0 0 1-4.75.31zm26.45-129.09-10.05 76.83 76.83-10.05 328.52-328.52-66.78-66.78z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                        \"],[11,\"path\",[]],[15,\"d\",\"M406.86 232.28a24.93 24.93 0 0 1-17.68-7.28L287 122.82a25 25 0 0 1 35.4-35.36L424.54 189.6a25 25 0 0 1-17.68 42.68z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"        \"],[14],[0,\"\\n\\n        \"],[11,\"div\",[]],[15,\"class\",\"org-details-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"org-details-box\"],[13],[0,\"\\n                \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"location-icon\",\"txt-wrap\",[28,[\"organization\",\"organizationAddress\"]]]]],false],[0,\"\\n                \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemName\"],[\"calander-icon\",[28,[\"organization\",\"startedYear\"]]]]],false],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[0,\"                    \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"badge-icon\",\"uppercase ft-sm\",[33,[\"organization-status\"],[[28,[\"organization\",\"organizationStatus\"]]],null]]]],false],[0,\"\\n                    \"],[11,\"p\",[]],[15,\"class\",\"txt-wrap ft-sm ft-dark-grey\"],[13],[0,\"Created at \"],[1,[33,[\"millis-to-date-time\"],[[28,[\"organization\",\"organizationCreatedAt\"]]],null],false],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"org-admin-details-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"org-admin-details-inner-box\"],[13],[0,\"\\n                    \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"admin-icon\",\"elipsis\",[33,[\"or\"],[[28,[\"admin\",\"userName\"]],\"Not assigned\"],null]]]],false],[0,\"\\n                    \"],[1,[33,[\"card-item\"],null,[[\"itemIconClass\",\"itemNameClass\",\"itemName\"],[\"mail-icon\",\"elipsis\",[33,[\"or\"],[[28,[\"admin\",\"email\"]],\"Not assigned\"],null]]]],false],[0,\"\\n                \"],[14],[0,\"  \\n                \"],[11,\"div\",[]],[15,\"class\",\"org-admin-details-button-box\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],2],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-blue bg-blue ft-white rrev icon-xs\",\"Edit\",true,[33,[\"action\"],[[28,[null]],\"setIsOrganizationFormOpen\",true],null]]],{\"statements\":[[0,\"                            \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 512 512\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                                \"],[11,\"path\",[]],[15,\"d\",\"M35.86 512A35.94 35.94 0 0 1 .31 471.39l12.84-98.12a40.81 40.81 0 0 1 11.56-23.47L363 11.51a39.42 39.42 0 0 1 55.67 0l81.82 81.82a39.42 39.42 0 0 1 0 55.67L162.2 487.29a40.78 40.78 0 0 1-23.47 11.56l-98.12 12.84a36.31 36.31 0 0 1-4.75.31zm26.45-129.09-10.05 76.83 76.83-10.05 328.52-328.52-66.78-66.78z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                                \"],[11,\"path\",[]],[15,\"d\",\"M406.86 232.28a24.93 24.93 0 0 1-17.68-7.28L287 122.82a25 25 0 0 1 35.4-35.36L424.54 189.6a25 25 0 0 1-17.68 42.68z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                            \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n    \"],[1,[33,[\"organization-user-navbar\"],null,[[\"searchOrganizationUsers\",\"openAddUserForm\",\"searchValue\",\"filterValue\",\"sortValue\",\"orderValue\",\"currentPage\",\"totalPages\"],[[33,[\"action\"],[[28,[null]],\"searchOrganizationUsers\"],null],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",1],null],[28,[\"searchValue\"]],[28,[\"filterValue\"]],[28,[\"sortValue\"]],[28,[\"orderValue\"]],[28,[\"currentPage\"]],[28,[\"totalPages\"]]]]],false],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"org-users-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"users\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"users\"]]],null,{\"statements\":[[0,\"                \"],[1,[33,[\"user-card\"],null,[[\"class\",\"hideMenu\",\"user\",\"setSelectedUser\",\"setOrganizationUserFormType\"],[\"bg-white\",[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],0],null],[28,[\"user\"]],[33,[\"action\"],[[28,[null]],\"setSelectedUser\",[28,[\"user\"]]],null],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"user\"]},null]],\"locals\":[]},{\"statements\":[[0,\"            \"],[11,\"p\",[]],[13],[0,\"No users found\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[6,[\"if\"],[[28,[\"isOrganizationFormOpen\"]]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-form\"],null,[[\"organization\",\"admin\",\"handleOrganizationUpdate\",\"closeOrganizationForm\",\"refreshModel\"],[[28,[\"organization\"]],[28,[\"admin\"]],[33,[\"action\"],[[28,[null]],\"updateOrganizationDetails\"],null],[33,[\"action\"],[[28,[null]],\"setIsOrganizationFormOpen\",false],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],1],null]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"organizationUserFormType\",\"organization\",\"closeOrganizationUserForm\",\"refreshModel\"],[[28,[\"organizationUserFormType\"]],[28,[\"organization\"]],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],2],null]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"organizationUserFormType\",\"user\",\"closeOrganizationUserForm\",\"refreshModel\"],[[28,[\"organizationUserFormType\"]],[28,[\"selectedUser\"]],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"organizationUserFormType\"]],3],null]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"organizationUserFormType\",\"user\",\"closeOrganizationUserForm\",\"refreshModel\"],[[28,[\"organizationUserFormType\"]],[28,[\"selectedUser\"]],[33,[\"action\"],[[28,[null]],\"setOrganizationUserFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}],[0,\"\\n\"],[1,[26,[\"outlet\"]],false]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/organizations/organization.hbs" } });
 });
 define("tournament-management-system/templates/organizations/organization/user", ["exports"], function (exports) {
   "use strict";
@@ -6624,7 +8155,7 @@ define("tournament-management-system/templates/profile", ["exports"], function (
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "1sMHW5tG", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section profile\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"profile-bg-image-box\"],[13],[0,\"\\n        \"],[11,\"img\",[]],[15,\"class\",\"profile-bg-image\"],[16,\"src\",[33,[\"prepend-root\"],[[28,[\"user\",\"profileBackgroundUrl\"]]],null],null],[15,\"alt\",\"Background image\"],[13],[14],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"profile-container\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"profile-info-container\"],[13],[0,\"\\n            \"],[1,[33,[\"user-card\"],null,[[\"class\",\"user\"],[\"bg-white br-light-grey\",[28,[\"user\"]]]]],false],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"profile-info-box\"],[13],[0,\"\\n\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"profile-details-container\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"profile-details-box\"],[13],[0,\"\\n                \"],[1,[33,[\"icon-label-item\"],null,[[\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"ft-night-black\",\"Full Name:\",\"ft-dark-grey\",[28,[\"user\",\"userName\"]]]]],false],[0,\"\\n                \"],[1,[33,[\"icon-label-item\"],null,[[\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"ft-night-black\",\"Gender:\",\"ft-dark-grey\",[33,[\"compute-gender\"],[[28,[\"user\",\"gender\"]]],null]]]],false],[0,\"\\n                \"],[1,[33,[\"icon-label-item\"],null,[[\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"ft-night-black\",\"Date of birth:\",\"ft-dark-grey\",[33,[\"millis-to-date\"],[[28,[\"user\",\"dateOfBirth\"]]],null]]]],false],[0,\"\\n                \"],[1,[33,[\"icon-label-item\"],null,[[\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"ft-night-black\",\"Blood group:\",\"ft-dark-grey\",[33,[\"concat\"],[[28,[\"user\",\"bloodGroup\"]],\" Ve\"],null]]]],false],[0,\"\\n                \"],[1,[33,[\"icon-label-item\"],null,[[\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"ft-night-black\",\"Phone Number:\",\"ft-dark-grey\",[28,[\"user\",\"phoneNumber\"]]]]],false],[0,\"\\n                \"],[1,[33,[\"icon-label-item\"],null,[[\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"ft-night-black\",\"Address:\",\"ft-dark-grey\",[33,[\"or\"],[[28,[\"user\",\"address\"]],\"-\"],null]]]],false],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/profile.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "bo/+DB3p", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section profile\"],[13],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"profile-bg-image-box\"],[13],[0,\"\\n        \"],[11,\"img\",[]],[15,\"class\",\"profile-bg-image\"],[16,\"src\",[33,[\"prepend-root\"],[[28,[\"user\",\"profileBackgroundUrl\"]]],null],null],[15,\"alt\",\"Background image\"],[13],[14],[0,\"\\n    \"],[14],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"profile-container\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"profile-info-container\"],[13],[0,\"\\n            \"],[1,[33,[\"user-card\"],null,[[\"class\",\"user\",\"hideMenu\"],[\"bg-white br-light-grey\",[28,[\"user\"]],true]]],false],[0,\"\\n        \"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"profile-details-container\"],[13],[0,\"\\n            \"],[11,\"table\",[]],[15,\"class\",\"profile-details-box\"],[13],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"\\n                        \"],[11,\"div\",[]],[13],[0,\"\\n                            \"],[11,\"strong\",[]],[15,\"class\",\"ft-xl wt-500 ft-black\"],[13],[0,\"Personal Details\"],[14],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"isSVG\",\"title\",\"onClick\"],[\"br-transparent bg-transparent ft-blue circle pd-sq icon-sm\",true,\"Edit profile\",[33,[\"action\"],[[28,[null]],\"setEditProfileFromOpen\",true],null]]],{\"statements\":[[0,\"                                \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"version\",\"1.1\"],[15,\"xmlns:xlink\",\"http://www.w3.org/1999/xlink\",\"http://www.w3.org/2000/xmlns/\"],[15,\"viewBox\",\"0 0 512 512\"],[15,\"xml:space\",\"preserve\",\"http://www.w3.org/XML/1998/namespace\"],[13],[0,\"\\n                                    \"],[11,\"path\",[]],[15,\"d\",\"M35.86 512A35.94 35.94 0 0 1 .31 471.39l12.84-98.12a40.81 40.81 0 0 1 11.56-23.47L363 11.51a39.42 39.42 0 0 1 55.67 0l81.82 81.82a39.42 39.42 0 0 1 0 55.67L162.2 487.29a40.78 40.78 0 0 1-23.47 11.56l-98.12 12.84a36.31 36.31 0 0 1-4.75.31zm26.45-129.09-10.05 76.83 76.83-10.05 328.52-328.52-66.78-66.78z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                                    \"],[11,\"path\",[]],[15,\"d\",\"M406.86 232.28a24.93 24.93 0 0 1-17.68-7.28L287 122.82a25 25 0 0 1 35.4-35.36L424.54 189.6a25 25 0 0 1-17.68 42.68z\"],[15,\"fill\",\"currentColor\"],[15,\"opacity\",\"1\"],[15,\"data-original\",\"#000000\"],[13],[14],[0,\"\\n                                \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"Full Name\"],[14],[0,\"\\n                    \"],[11,\"td\",[]],[13],[1,[28,[\"user\",\"userName\"]],false],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"Gender\"],[14],[0,\"\\n                    \"],[11,\"td\",[]],[13],[1,[33,[\"compute-gender\"],[[28,[\"user\",\"gender\"]]],null],false],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"Date of birth\"],[14],[0,\"\\n                    \"],[11,\"td\",[]],[13],[1,[33,[\"millis-to-date\"],[[28,[\"user\",\"dateOfBirth\"]]],null],false],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"Blood Group\"],[14],[0,\"\\n                    \"],[11,\"td\",[]],[13],[1,[33,[\"if\"],[[28,[\"user\",\"bloodGroup\"]],[33,[\"concat\"],[[28,[\"user\",\"bloodGroup\"]],\"Ve\"],null],\"-\"],null],false],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"Phone Number\"],[14],[0,\"\\n                    \"],[11,\"td\",[]],[13],[1,[28,[\"user\",\"phoneNumber\"]],false],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"tr\",[]],[13],[0,\"\\n                    \"],[11,\"th\",[]],[13],[0,\"Address\"],[14],[0,\"\\n                    \"],[11,\"td\",[]],[13],[1,[33,[\"or\"],[[28,[\"user\",\"address\"]],\"-\"],null],false],[14],[0,\"\\n                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n    \"],[14],[0,\"\\n\\n\\n\\n\"],[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-transparent ft-light-grey curved back-btn\",\"Back\",true,[33,[\"action\"],[[28,[null]],\"goBack\"],null]]],{\"statements\":[[0,\"        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18\"],[13],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[14],[0,\"\\n\\n\"],[6,[\"if\"],[[28,[\"editProfileFormOpen\"]]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"editProfileFormOpen\",\"user\",\"closeOrganizationUserForm\",\"switchChangePasswordFormOpen\",\"refreshModel\"],[[28,[\"editProfileFormOpen\"]],[28,[\"user\"]],[33,[\"action\"],[[28,[null]],\"setEditProfileFromOpen\",false],null],[33,[\"action\"],[[28,[null]],\"setChangePasswordFormOpen\",true],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[28,[\"changePasswordFormOpen\"]]],null,{\"statements\":[[0,\"    \"],[1,[33,[\"organization-user-form\"],null,[[\"changePasswordFormOpen\",\"user\",\"closeOrganizationUserForm\",\"switchEditProfileFromOpen\",\"refreshModel\"],[[28,[\"changePasswordFormOpen\"]],[28,[\"user\"]],[33,[\"action\"],[[28,[null]],\"setChangePasswordFormOpen\",false],null],[33,[\"action\"],[[28,[null]],\"setEditProfileFromOpen\",true],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/profile.hbs" } });
 });
 define("tournament-management-system/templates/register", ["exports"], function (exports) {
   "use strict";
@@ -6648,7 +8179,7 @@ define("tournament-management-system/templates/tournaments/index", ["exports"], 
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "VJp0fCYI", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section bg-pale-white flex column\"],[13],[0,\"\\n    \"],[1,[33,[\"tournament-navbar\"],null,[[\"searchTournaments\",\"searchValue\",\"filterValue\",\"sortValue\",\"orderValue\"],[[33,[\"action\"],[[28,[null]],\"searchTournaments\"],null],[28,[\"searchValue\"]],[28,[\"filterValue\"]],[28,[\"sortValue\"]],[28,[\"orderValue\"]]]]],false],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"tournaments\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"tournaments\"]]],null,{\"statements\":[[0,\"                \"],[1,[33,[\"tournament-card\"],null,[[\"class\",\"tournament\",\"openCancelPopup\",\"setSelectedTournament\"],[\"shadow\",[28,[\"tournament\"]],[33,[\"action\"],[[28,[null]],\"setIsCancelPopupOpen\",true],null],[33,[\"action\"],[[28,[null]],\"setSelectedTournament\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"tournament\"]},null]],\"locals\":[]},{\"statements\":[[0,\"            \"],[11,\"p\",[]],[13],[0,\"No tournament available\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[6,[\"if\"],[[28,[\"isCancelPopupOpen\"]]],null,{\"statements\":[[6,[\"popup-box\"],null,[[\"class\",\"closePopup\"],[\"cancel-tournament-popup-box\",[33,[\"action\"],[[28,[null]],\"setIsCancelPopupOpen\",false],null]]],{\"statements\":[[0,\"        \"],[11,\"h2\",[]],[15,\"class\",\"ft-night-black ft-3xl wt-400\"],[13],[0,\"Cancel Tournament\"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"cancel-tournament-popup-details\"],[13],[0,\"\\n            \"],[11,\"p\",[]],[15,\"class\",\"ft-grey ft-sm\"],[13],[0,\"Are you sure? want to cancel \"],[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"selectedTournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration ft-blue\"]],{\"statements\":[[1,[28,[\"selectedTournament\",\"tournamentName\"]],false]],\"locals\":[]},null],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"cancel-tournament-popup-buttons\"],[13],[0,\"\\n                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-blue bg-blue ft-white soft-corner\",\"Go back\",[33,[\"action\"],[[28,[null]],\"setIsCancelPopupOpen\",false],null]]]],false],[0,\"\\n                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-red bg-red ft-white soft-corner\",\"Cancel\",[33,[\"action\"],[[28,[null]],\"cancelTournament\"],null]]]],false],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/tournaments/index.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "cIGMOq+v", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"container section bg-pale-white flex fd-column\"],[13],[0,\"\\n    \"],[1,[33,[\"tournament-navbar\"],null,[[\"searchTournaments\",\"searchValue\",\"filterValue\",\"sortValue\",\"orderValue\",\"currentPage\",\"totalPages\"],[[33,[\"action\"],[[28,[null]],\"searchTournaments\"],null],[28,[\"searchValue\"]],[28,[\"filterValue\"]],[28,[\"sortValue\"]],[28,[\"orderValue\"]],[28,[\"currentPage\"]],[28,[\"totalPages\"]]]]],false],[0,\"\\n    \"],[11,\"div\",[]],[15,\"class\",\"tournament-card-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"tournaments\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"tournaments\"]]],null,{\"statements\":[[0,\"                \"],[1,[33,[\"tournament-card\"],null,[[\"class\",\"tournament\",\"openCancelPopup\",\"setSelectedTournament\",\"showMenu\"],[\"shadow\",[28,[\"tournament\"]],[33,[\"action\"],[[28,[null]],\"setIsCancelPopupOpen\",true],null],[33,[\"action\"],[[28,[null]],\"setSelectedTournament\"],null],true]]],false],[0,\"\\n\"]],\"locals\":[\"tournament\"]},null]],\"locals\":[]},{\"statements\":[[0,\"            \"],[11,\"p\",[]],[15,\"class\",\"txt-center\"],[13],[0,\"No tournament available\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"    \"],[14],[0,\"\\n\"],[14],[0,\"\\n\\n\"],[6,[\"if\"],[[28,[\"isCancelPopupOpen\"]]],null,{\"statements\":[[6,[\"popup-box\"],null,[[\"class\",\"closePopup\"],[\"cancel-tournament-popup-box\",[33,[\"action\"],[[28,[null]],\"setIsCancelPopupOpen\",false],null]]],{\"statements\":[[0,\"        \"],[11,\"h2\",[]],[15,\"class\",\"ft-night-black ft-3xl wt-400\"],[13],[0,\"Cancel Tournament\"],[14],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"cancel-tournament-popup-details\"],[13],[0,\"\\n            \"],[11,\"p\",[]],[15,\"class\",\"ft-grey ft-sm\"],[13],[0,\"Are you sure? want to cancel \"],[6,[\"link-to\"],[\"tournaments.tournament\",[28,[\"selectedTournament\",\"tournamentId\"]]],[[\"class\"],[\"no-decoration ft-blue\"]],{\"statements\":[[1,[28,[\"selectedTournament\",\"tournamentName\"]],false]],\"locals\":[]},null],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"cancel-tournament-popup-buttons\"],[13],[0,\"\\n                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-light-grey bg-pale-white ft-grey soft-corner\",\"Cancel\",[33,[\"action\"],[[28,[null]],\"setIsCancelPopupOpen\",false],null]]]],false],[0,\"\\n                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-red bg-red ft-white soft-corner\",\"Confirm\",[33,[\"action\"],[[28,[null]],\"cancelTournament\"],null]]]],false],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/tournaments/index.hbs" } });
 });
 define("tournament-management-system/templates/tournaments/new", ["exports"], function (exports) {
   "use strict";
@@ -6664,7 +8195,7 @@ define("tournament-management-system/templates/tournaments/tournament", ["export
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "Sa60pT6x", "block": "{\"statements\":[[6,[\"if\"],[[28,[\"tournament\"]]],null,{\"statements\":[[0,\"\\n    \"],[11,\"section\",[]],[15,\"class\",\"section container tournament bg-pale-white\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-poster-image-container\"],[13],[0,\"\\n                \"],[11,\"img\",[]],[15,\"class\",\"tournament-poster-image\"],[16,\"src\",[33,[\"prepend-root\"],[[28,[\"tournament\",\"tournamentPoster\"]]],null],null],[15,\"alt\",\"Tournament Image\"],[13],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-poster-overlay\"],[13],[0,\"\\n                    \"],[11,\"h1\",[]],[15,\"class\",\"tournament-poster-header ft-white capitalize\"],[13],[1,[28,[\"tournament\",\"tournamentName\"]],false],[14],[0,\"\\n                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-container\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-wrapper\"],[13],[0,\"\\n                    \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-box bg-white\"],[13],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-header-box\"],[13],[0,\"\\n                            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-header-icon\"],[13],[14],[0,\"\\n                            \"],[11,\"h2\",[]],[15,\"class\",\"tournament-detail-header\"],[13],[1,[28,[\"tournament\",\"tournamentName\"]],false],[14],[0,\"\\n                        \"],[14],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/location-icon.svg\",\"ft-night-black\",\"Venue:\",\"ft-dark-grey wt-300\",[33,[\"or\"],[[28,[\"tournament\",\"tournamentVenue\"]],\"Not Specified\"],null]]]],false],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/calander-icon.svg\",\"ft-night-black\",\"Date:\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date\"],[[28,[\"tournament\",\"tournamentDate\"]],\"Not Specified\"],null]]]],false],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/rocket-icon.svg\",\"ft-night-black\",\"Open:\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date-time\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null]]]],false],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/stop-watch-icon.svg\",\"ft-night-black\",\"Close:\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date-time\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]]]],false],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-tags-box\"],[13],[0,\"\\n                            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-tag\"],[13],[1,[28,[\"tournament\",\"sportName\"]],false],[14],[0,\"\\n                            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-tag\"],[13],[1,[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null],\"Individual\",\"Team\"],null],false],[14],[0,\"\\n                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n                    \"],[11,\"div\",[]],[15,\"class\",\"tournament-registration-box bg-white\"],[13],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-registration-button-box\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[28,[\"userParticipation\",\"userRegistered\"]]],null,{\"statements\":[[6,[\"if\"],[[33,[\"instance-lt\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"disabled\"],[\"br-light-grey bg-pale-white ft-light-grey\",\"Comming soon\",true]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"instance-gt\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"disabled\"],[\"br-light-grey bg-pale-white ft-light-grey\",\"Closed\",true]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-blue bg-blue ft-white\",\"Register\",[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",1],null]]]],false],[0,\"\\n                                \"]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"and\"],[[33,[\"instance-gt\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null],[33,[\"instance-lt\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"and\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null],[33,[\"eq\"],[[28,[\"userParticipation\",\"teamLeaderId\"]],[28,[\"userInfo\",\"userId\"]]],null]],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-green bg-green ft-white\",\"Update Details\",[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",2],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-red bg-white ft-red\",\"Unregister\",[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",3],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"br-orange bg-white ft-orange\",\"Registered\"]]],false],[0,\"\\n                            \"]],\"locals\":[]}]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-registration-details-box\"],[13],[0,\"\\n                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/cube-icon.svg\",\"ft-xs ft-grey wt-300\",\"Sport\",\"ft-dark-grey\",[28,[\"tournament\",\"sportName\"]]]]],false],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/individual-icon.svg\",\"ft-dark-grey\",\"Individual\"]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/people-icon.svg\",\"ft-xs ft-grey wt-300\",\"Team\",\"ft-dark-grey\",[33,[\"concat\"],[[28,[\"tournament\",\"teamSize\"]],\" members\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]}],[0,\"                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/exclamation-triangle-icon.svg\",\"ft-xs ft-grey wt-300\",\"Participation Limit\",\"ft-dark-grey\",[28,[\"tournament\",\"maxParticipation\"]]]]],false],[0,\"\\n                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/bw-person-icon.svg\",\"ft-xs ft-grey wt-300\",\"Registered\",\"ft-dark-grey\",[28,[\"tournament\",\"registeredCount\"]]]]],false],[0,\"        \\n                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/clock-icon.svg\",\"ft-xs ft-grey wt-300\",\"Deadline\",\"ft-dark-grey\",[33,[\"calculate-deadline\"],[[28,[\"tournament\",\"registrationStartDate\"]],[28,[\"tournament\",\"registrationEndDate\"]]],null]]]],false],[0,\"\\n                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"event-details-wrapper\"],[13],[0,\"\\n                    \"],[11,\"div\",[]],[15,\"class\",\"event-navbar\"],[13],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"event-navbar-buttons\"],[13],[0,\"\\n                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"bg-transparent curved \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],0],null],\"br-blue ft-blue\",\"br-transparent ft-night-black\"],null]],null],\"Contestants\",[33,[\"action\"],[[28,[null]],\"setEventPageType\",0],null]]]],false],[0,\"\\n                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"bg-transparent curved \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],1],null],\"br-blue ft-blue\",\"br-transparent ft-night-black\"],null]],null],\"Schedules\",[33,[\"action\"],[[28,[null]],\"setEventPageType\",1],null]]]],false],[0,\"\\n                        \"],[14],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"event-navbar-options\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\"],[400,[33,[\"action\"],[[28,[null]],\"searchContestants\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-green bg-green ft-white soft-corner\",\"Add Schedule\",[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",1],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                            \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],0],null]],null,{\"statements\":[[0,\"                        \"],[11,\"div\",[]],[15,\"class\",\"contestansts-wrapper\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"if\"],[[28,[\"userParticipation\",\"userRegistered\"]]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"participant-card\"],null,[[\"class\",\"participant\",\"pinCard\",\"refreshModel\",\"title\"],[\"my-participation\",[28,[\"userParticipation\"]],true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null],\"My participation\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[33,[\"participant-card\"],null,[[\"participant\",\"showContestantStatusControls\",\"refreshModel\"],[[28,[\"participant\"]],true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                                    \"],[11,\"p\",[]],[13],[0,\"No participants registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[28,[\"userParticipation\",\"userRegistered\"]]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"team-card\"],null,[[\"class\",\"team\",\"pinCard\",\"showRemoveMember\",\"refreshModel\",\"title\"],[\"my-participation\",[28,[\"userParticipation\"]],true,true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null],\"My team\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                                \\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[33,[\"team-card\"],null,[[\"team\",\"showContestantStatusControls\",\"showRemoveMember\",\"refreshModel\"],[[28,[\"team\"]],true,true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                                    \"],[11,\"p\",[]],[13],[0,\"No teams registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"\\n                            \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],1],null]],null,{\"statements\":[[0,\"                        \"],[11,\"div\",[]],[15,\"class\",\"schedules-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"schedules\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"schedules\"]]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"tournament-schedule-card\"],null,[[\"schedule\",\"refreshModel\"],[[28,[\"schedule\"]],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"schedule\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                                \"],[11,\"p\",[]],[13],[0,\"No schedules assigned yet\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n                    \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\\n    \"],[14],[0,\"\\n\\n\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-participation-form\"],null,[[\"tournamentFormType\",\"tournament\",\"teams\",\"closeTournamentForm\",\"onConfirmation\"],[[28,[\"tournamentFormType\"]],[28,[\"tournament\"]],[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null],[28,[\"teams\"]],null],null],[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",0],null],[33,[\"action\"],[[28,[null]],\"handleTournamentRegistration\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-participation-form\"],null,[[\"tournamentFormType\",\"tournament\",\"userParticipation\",\"closeTournamentForm\",\"onConfirmation\"],[[28,[\"tournamentFormType\"]],[28,[\"tournament\"]],[28,[\"userParticipation\"]],[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",0],null],[33,[\"action\"],[[28,[null]],\"handleUpdateTournamentRegistration\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-participation-form\"],null,[[\"tournamentFormType\",\"tournament\",\"userParticipation\",\"closeTournamentForm\",\"onConfirmation\"],[[28,[\"tournamentFormType\"]],[28,[\"tournament\"]],[28,[\"userParticipation\"]],[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",0],null],[33,[\"action\"],[[28,[null]],\"handleTournamentUnregistration\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-schedule-form\"],null,[[\"tournamentScheduleFormType\",\"tournament\",\"teams\",\"participants\",\"closeTournamentScheduleForm\",\"refreshModel\"],[[28,[\"tournamentScheduleFormType\"]],[28,[\"tournament\"]],[28,[\"teams\"]],[28,[\"participants\"]],[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n    \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}],[0,\"\\n    \"],[1,[26,[\"outlet\"]],false],[0,\"\\n\\n\"]],\"locals\":[]},{\"statements\":[[0,\"\\n    \"],[11,\"h1\",[]],[13],[0,\"it's 404 ☹️\"],[14],[0,\"\\n    \"],[11,\"h2\",[]],[13],[0,\"Tournament not found\"],[14],[0,\"\\n\\n\"]],\"locals\":[]}]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/tournaments/tournament.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "DkP71nL5", "block": "{\"statements\":[[6,[\"if\"],[[28,[\"tournament\"]]],null,{\"statements\":[[0,\"\\n    \"],[11,\"section\",[]],[15,\"class\",\"section container tournament bg-pale-white\"],[13],[0,\"\\n        \"],[11,\"div\",[]],[15,\"class\",\"tournament-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-poster-image-container\"],[13],[0,\"\\n                \"],[11,\"img\",[]],[15,\"class\",\"tournament-poster-image\"],[16,\"src\",[33,[\"prepend-root\"],[[28,[\"tournament\",\"tournamentPoster\"]]],null],null],[15,\"alt\",\"Tournament Image\"],[13],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-poster-overlay\"],[13],[0,\"\\n\"],[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-light-grey bg-transparent ft-light-grey curved\",\"Back\",true,[33,[\"action\"],[[28,[null]],\"goBack\"],null]]],{\"statements\":[[0,\"                        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.5\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18\"],[13],[14],[0,\"\\n                        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                    \"],[11,\"h1\",[]],[15,\"class\",\"tournament-poster-header ft-white capitalize\"],[13],[1,[28,[\"tournament\",\"tournamentName\"]],false],[14],[0,\"\\n                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-container\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-wrapper\"],[13],[0,\"\\n                    \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-box bg-white\"],[13],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-header-box\"],[13],[0,\"\\n                            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-header-icon\"],[13],[14],[0,\"\\n                            \"],[11,\"h2\",[]],[15,\"class\",\"tournament-detail-header\"],[13],[1,[28,[\"tournament\",\"tournamentName\"]],false],[14],[0,\"\\n                        \"],[14],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/location-icon.svg\",\"ft-night-black\",\"Venue:\",\"ft-dark-grey wt-300\",[33,[\"or\"],[[28,[\"tournament\",\"tournamentVenue\"]],\"Not Specified\"],null]]]],false],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/calander-icon.svg\",\"ft-night-black\",\"Date:\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date\"],[[28,[\"tournament\",\"tournamentDate\"]],\"Not Specified\"],null]]]],false],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/rocket-icon.svg\",\"ft-night-black\",\"Open:\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date-time\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null]]]],false],[0,\"\\n                        \"],[1,[33,[\"icon-label-item\"],null,[[\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"images/stop-watch-icon.svg\",\"ft-night-black\",\"Close:\",\"ft-dark-grey wt-300\",[33,[\"millis-to-date-time\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]]]],false],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-tags-box\"],[13],[0,\"\\n                            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-tag\"],[13],[1,[28,[\"tournament\",\"sportName\"]],false],[14],[0,\"\\n                            \"],[11,\"div\",[]],[15,\"class\",\"tournament-detail-tag\"],[13],[1,[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null],\"Individual\",\"Team\"],null],false],[14],[0,\"\\n                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n                    \"],[11,\"div\",[]],[15,\"class\",\"tournament-registration-box bg-white\"],[13],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-registration-button-box\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[28,[\"userParticipation\",\"userRegistered\"]]],null,{\"statements\":[[6,[\"if\"],[[33,[\"instance-lt\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"disabled\"],[\"br-light-grey bg-pale-white ft-light-grey\",\"Comming soon\",true]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"instance-gt\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"disabled\"],[\"br-light-grey bg-pale-white ft-light-grey\",\"Closed\",true]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-blue bg-blue ft-white\",\"Register\",[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",1],null]]]],false],[0,\"\\n                                \"]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"and\"],[[33,[\"instance-gt\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null],[33,[\"instance-lt\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"and\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null],[33,[\"eq\"],[[28,[\"userParticipation\",\"teamLeaderId\"]],[28,[\"userInfo\",\"userId\"]]],null]],null]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-green bg-green ft-white\",\"Update Details\",[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",2],null]]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[\"br-red bg-white ft-red\",\"Unregister\",[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",3],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\"],[\"br-orange bg-white ft-orange\",\"Registered\"]]],false],[0,\"\\n                            \"]],\"locals\":[]}]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"tournament-registration-details-box\"],[13],[0,\"\\n                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/cube-icon.svg\",\"ft-xs ft-grey wt-300\",\"Sport\",\"ft-dark-grey\",[28,[\"tournament\",\"sportName\"]]]]],false],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/individual-icon.svg\",\"ft-dark-grey\",\"Individual\"]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[0,\"                                \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/people-icon.svg\",\"ft-xs ft-grey wt-300\",\"Team\",\"ft-dark-grey\",[33,[\"concat\"],[[28,[\"tournament\",\"teamSize\"]],\" members\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]}],[0,\"                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/exclamation-triangle-icon.svg\",\"ft-xs ft-grey wt-300\",\"Participation Limit\",\"ft-dark-grey\",[28,[\"tournament\",\"maxParticipation\"]]]]],false],[0,\"\\n                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/bw-person-icon.svg\",\"ft-xs ft-grey wt-300\",\"Registered\",\"ft-dark-grey\",[28,[\"tournament\",\"registeredCount\"]]]]],false],[0,\"        \\n                            \"],[1,[33,[\"icon-label-item\"],null,[[\"iconLabelItemBoxClass\",\"iconBackground\",\"iconUrl\",\"itemLabelClass\",\"itemLabel\",\"itemValueClass\",\"itemValue\"],[\"col ai-start jc-center\",true,\"images/clock-icon.svg\",\"ft-xs ft-grey wt-300\",\"Deadline\",\"ft-dark-grey\",[33,[\"calculate-deadline\"],[[28,[\"tournament\",\"registrationStartDate\"]],[28,[\"tournament\",\"registrationEndDate\"]]],null]]]],false],[0,\"\\n                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"event-details-wrapper\"],[13],[0,\"\\n                    \"],[11,\"div\",[]],[15,\"class\",\"event-navbar\"],[13],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"event-navbar-buttons\"],[13],[0,\"\\n                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"bg-transparent curved \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],0],null],\"br-blue ft-blue\",\"br-transparent ft-night-black\"],null]],null],\"Contestants\",[33,[\"action\"],[[28,[null]],\"setEventPageType\",0],null]]]],false],[0,\"\\n                            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"buttonName\",\"onClick\"],[[33,[\"concat\"],[\"bg-transparent curved \",[33,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],1],null],\"br-blue ft-blue\",\"br-transparent ft-night-black\"],null]],null],\"Schedules\",[33,[\"action\"],[[28,[null]],\"setEventPageType\",1],null]]]],false],[0,\"\\n                        \"],[14],[0,\"\\n                        \"],[11,\"div\",[]],[15,\"class\",\"event-navbar-options\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],0],null]],null,{\"statements\":[[0,\"                                \"],[1,[33,[\"search-bar\"],null,[[\"minWait\",\"searchHandler\"],[400,[33,[\"action\"],[[28,[null]],\"searchContestants\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[33,[\"and\"],[[33,[\"eq\"],[[28,[\"userInfo\",\"role\"]],1],null],[33,[\"or\"],[[33,[\"eq\"],[[28,[\"tournament\",\"tournamentStatus\"]],0],null],[33,[\"eq\"],[[28,[\"tournament\",\"tournamentStatus\"]],1],null]],null],[33,[\"instance-gt\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null]],null]],null,{\"statements\":[[6,[\"general-button\"],null,[[\"class\",\"buttonName\",\"isSVG\",\"onClick\"],[\"br-green bg-green ft-white soft-corner\",\"Schedule\",true,[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",1],null]]],{\"statements\":[[0,\"                                        \"],[11,\"svg\",[]],[15,\"xmlns\",\"http://www.w3.org/2000/svg\",\"http://www.w3.org/2000/xmlns/\"],[15,\"fill\",\"none\"],[15,\"viewBox\",\"0 0 24 24\"],[15,\"stroke-width\",\"1.75\"],[15,\"stroke\",\"currentColor\"],[13],[0,\"\\n                                            \"],[11,\"path\",[]],[15,\"stroke-linecap\",\"round\"],[15,\"stroke-linejoin\",\"round\"],[15,\"d\",\"M12 4.5v15m7.5-7.5h-15\"],[13],[14],[0,\"\\n                                        \"],[14],[0,\"\\n\"]],\"locals\":[]},null]],\"locals\":[]},null],[0,\"                            \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n                    \"],[14],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],0],null]],null,{\"statements\":[[0,\"                        \"],[11,\"div\",[]],[15,\"class\",\"contestansts-wrapper\"],[13],[0,\"\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],0],null]],null,{\"statements\":[[6,[\"if\"],[[28,[\"userParticipation\",\"userRegistered\"]]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"participant-card\"],null,[[\"class\",\"participant\",\"pinCard\",\"refreshModel\",\"title\"],[\"my-participation\",[28,[\"userParticipation\"]],true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null],\"My participation\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"participants\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"participants\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[33,[\"participant-card\"],null,[[\"participant\",\"showContestantStatusControls\",\"refreshModel\"],[[28,[\"participant\"]],true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"participant\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                                    \"],[11,\"p\",[]],[13],[0,\"No participants registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null]],null,{\"statements\":[[6,[\"if\"],[[28,[\"userParticipation\",\"userRegistered\"]]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"team-card\"],null,[[\"class\",\"team\",\"pinCard\",\"showRemoveMember\",\"refreshModel\",\"title\"],[\"my-participation\",[28,[\"userParticipation\"]],true,true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null],\"My team\"]]],false],[0,\"\\n\"]],\"locals\":[]},null],[0,\"                                \\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"teams\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"teams\"]]],null,{\"statements\":[[0,\"                                        \"],[1,[33,[\"team-card\"],null,[[\"team\",\"showContestantStatusControls\",\"showRemoveMember\",\"refreshModel\"],[[28,[\"team\"]],true,true,[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"team\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                                    \"],[11,\"p\",[]],[13],[0,\"No teams registered yet\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"\\n                            \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"eventPageType\"]],1],null]],null,{\"statements\":[[0,\"                        \"],[11,\"div\",[]],[15,\"class\",\"schedules-wrapper\"],[13],[0,\"\\n\"],[6,[\"unless\"],[[33,[\"is-empty\"],[[28,[\"schedules\"]]],null]],null,{\"statements\":[[6,[\"each\"],[[28,[\"schedules\"]]],null,{\"statements\":[[0,\"                                    \"],[1,[33,[\"tournament-schedule-card\"],null,[[\"schedule\",\"refreshModel\",\"setTournamentScheduleFormType\",\"setSelectedSchedule\"],[[28,[\"schedule\"]],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null],[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\"],null],[33,[\"action\"],[[28,[null]],\"setSelectedSchedule\"],null]]]],false],[0,\"\\n\"]],\"locals\":[\"schedule\"]},null]],\"locals\":[]},{\"statements\":[[0,\"                                \"],[11,\"p\",[]],[13],[0,\"No schedules assigned yet\"],[14],[0,\"\\n\"]],\"locals\":[]}],[0,\"                        \"],[14],[0,\"\\n                    \"]],\"locals\":[]},null]],\"locals\":[]}],[0,\"                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n        \"],[14],[0,\"\\n\\n    \"],[14],[0,\"\\n\\n\\n\"],[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],1],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-participation-form\"],null,[[\"tournamentFormType\",\"tournament\",\"teams\",\"closeTournamentForm\",\"onConfirmation\"],[[28,[\"tournamentFormType\"]],[28,[\"tournament\"]],[33,[\"if\"],[[33,[\"eq\"],[[28,[\"tournament\",\"sportType\"]],1],null],[28,[\"teams\"]],null],null],[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",0],null],[33,[\"action\"],[[28,[null]],\"handleTournamentRegistration\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],2],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-participation-form\"],null,[[\"tournamentFormType\",\"tournament\",\"userParticipation\",\"closeTournamentForm\",\"onConfirmation\"],[[28,[\"tournamentFormType\"]],[28,[\"tournament\"]],[28,[\"userParticipation\"]],[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",0],null],[33,[\"action\"],[[28,[null]],\"handleUpdateTournamentRegistration\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentFormType\"]],3],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-participation-form\"],null,[[\"tournamentFormType\",\"tournament\",\"userParticipation\",\"closeTournamentForm\",\"onConfirmation\"],[[28,[\"tournamentFormType\"]],[28,[\"tournament\"]],[28,[\"userParticipation\"]],[33,[\"action\"],[[28,[null]],\"setTournamentFormType\",0],null],[33,[\"action\"],[[28,[null]],\"handleTournamentUnregistration\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],1],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-schedule-form\"],null,[[\"tournamentScheduleFormType\",\"tournament\",\"teams\",\"participants\",\"closeTournamentScheduleForm\",\"refreshModel\"],[[28,[\"tournamentScheduleFormType\"]],[28,[\"tournament\"]],[28,[\"teams\"]],[28,[\"participants\"]],[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],2],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-schedule-form\"],null,[[\"tournamentScheduleFormType\",\"tournament\",\"teams\",\"selectedSchedule\",\"participants\",\"closeTournamentScheduleForm\",\"refreshModel\"],[[28,[\"tournamentScheduleFormType\"]],[28,[\"tournament\"]],[28,[\"teams\"]],[28,[\"selectedSchedule\"]],[28,[\"participants\"]],[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],3],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-schedule-form\"],null,[[\"tournamentScheduleFormType\",\"tournament\",\"teams\",\"selectedSchedule\",\"participants\",\"closeTournamentScheduleForm\",\"refreshModel\"],[[28,[\"tournamentScheduleFormType\"]],[28,[\"tournament\"]],[28,[\"teams\"]],[28,[\"selectedSchedule\"]],[28,[\"participants\"]],[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n\"]],\"locals\":[]},{\"statements\":[[6,[\"if\"],[[33,[\"eq\"],[[28,[\"tournamentScheduleFormType\"]],4],null]],null,{\"statements\":[[0,\"        \"],[1,[33,[\"tournament-schedule-form\"],null,[[\"tournamentScheduleFormType\",\"tournament\",\"teams\",\"selectedSchedule\",\"participants\",\"closeTournamentScheduleForm\",\"refreshModel\"],[[28,[\"tournamentScheduleFormType\"]],[28,[\"tournament\"]],[28,[\"teams\"]],[28,[\"selectedSchedule\"]],[28,[\"participants\"]],[33,[\"action\"],[[28,[null]],\"setTournamentScheduleFormType\",0],null],[33,[\"action\"],[[28,[null]],\"refreshModel\"],null]]]],false],[0,\"\\n    \"]],\"locals\":[]},null]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}]],\"locals\":[]}],[0,\"\\n    \"],[1,[26,[\"outlet\"]],false],[0,\"\\n\\n\"]],\"locals\":[]},{\"statements\":[[0,\"\\n    \"],[11,\"h1\",[]],[13],[0,\"it's 404 ☹️\"],[14],[0,\"\\n    \"],[11,\"h2\",[]],[13],[0,\"Tournament not found\"],[14],[0,\"\\n\\n\"]],\"locals\":[]}]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/tournaments/tournament.hbs" } });
 });
 define("tournament-management-system/templates/tournaments/tournament/edit", ["exports"], function (exports) {
   "use strict";
@@ -6672,7 +8203,7 @@ define("tournament-management-system/templates/tournaments/tournament/edit", ["e
   Object.defineProperty(exports, "__esModule", {
     value: true
   });
-  exports.default = Ember.HTMLBars.template({ "id": "+Oa0GTK0", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"section container form-bg edit-tournament\"],[13],[0,\"\\n\"],[6,[\"form-model\"],null,[[\"class\",\"formHeader\",\"onSubmit\"],[\"tournament-form-model\",\"Edit Tournament\",[33,[\"action\"],[[28,[null]],\"editTournament\"],null]]],{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-inner-box\"],[13],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"tournamentName\",\"edit-tournamentname\",\"Tournament Name\",true,[28,[\"tournament\",\"tournamentName\"]],[28,[\"validationErrors\",\"tournamentName\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"maxParticipation\",\"edit-maxparticipation\",\"Participation Limit\",true,[33,[\"if\"],[[28,[\"tournament\",\"maxParticipation\"]],[28,[\"tournament\",\"maxParticipation\"]],\"\"],null],[28,[\"validationErrors\",\"maxParticipation\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"errorMessage\"],[\"tournamentDate\",\"edit-tournamentdate\",\"Start Date\",[33,[\"millis-to-date\"],[[28,[\"tournament\",\"tournamentDate\"]],\"\"],null],[28,[\"validationErrors\",\"tournamentDate\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"errorMessage\"],[\"tournamentVenue\",\"edit-tournamentvenue\",\"Venue\",[28,[\"tournament\",\"tournamentVenue\"]],[28,[\"validationErrors\",\"tournamentVenue\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"registrationStartDate\",\"edit-registrationstartdate\",\"Registration Opening (dd/mm/yyyy)\",true,[33,[\"millis-to-date\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null],[28,[\"validationErrors\",\"registrationStartDate\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"registrationEndDate\",\"edit-registrationenddate\",\"Registration Closing (dd/mm/yyyy)\",true,[33,[\"millis-to-date\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null],[28,[\"validationErrors\",\"registrationEndDate\"]]]]],false],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-inner-box\"],[13],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"sportName\",\"edit-sportname\",\"Sport Name\",true,[28,[\"tournament\",\"sportName\"]],[28,[\"validationErrors\",\"sportName\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"options\",\"selectedValue\",\"isRequired\",\"errorMessage\"],[\"sportType\",\"edit-sporttype\",\"Sport Type\",[28,[\"sportTypeOptions\"]],[28,[\"tournament\",\"sportType\"]],true,[28,[\"validationErrors\",\"sportType\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"teamSize\",\"edit-teamsize\",\"Team Size\",true,[28,[\"tournament\",\"teamSize\"]],[28,[\"validationErrors\",\"teamSize\"]]]]],false],[0,\"\\n                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"type\",\"buttonName\"],[\"br-blue bg-blue ft-white soft-corner\",\"submit\",\"Save\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[14],[0,\"\\n\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/tournaments/tournament/edit.hbs" } });
+  exports.default = Ember.HTMLBars.template({ "id": "oUiWaAez", "block": "{\"statements\":[[11,\"section\",[]],[15,\"class\",\"section container overlay-form edit-tournament\"],[13],[0,\"\\n\"],[6,[\"form-model\"],null,[[\"class\",\"formHeader\",\"onSubmit\"],[\"tournament-form-model\",\"Edit Tournament\",[33,[\"action\"],[[28,[null]],\"editTournament\"],null]]],{\"statements\":[[0,\"        \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-wrapper\"],[13],[0,\"\\n            \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-box\"],[13],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-inner-box\"],[13],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"tournamentName\",\"edit-tournamentname\",\"Tournament Name\",true,[28,[\"tournament\",\"tournamentName\"]],[28,[\"validationErrors\",\"tournamentName\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"maxParticipation\",\"edit-maxparticipation\",\"Participation Limit\",true,[33,[\"if\"],[[28,[\"tournament\",\"maxParticipation\"]],[28,[\"tournament\",\"maxParticipation\"]],\"\"],null],[28,[\"validationErrors\",\"maxParticipation\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"errorMessage\"],[\"tournamentDate\",\"edit-tournamentdate\",\"Start Date\",[33,[\"millis-to-date\"],[[28,[\"tournament\",\"tournamentDate\"]],\"\"],null],[28,[\"validationErrors\",\"tournamentDate\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"defaultValue\",\"errorMessage\"],[\"tournamentVenue\",\"edit-tournamentvenue\",\"Venue\",[28,[\"tournament\",\"tournamentVenue\"]],[28,[\"validationErrors\",\"tournamentVenue\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"registrationStartDate\",\"edit-registrationstartdate\",\"Registration Opening (dd/mm/yyyy)\",true,[33,[\"millis-to-date\"],[[28,[\"tournament\",\"registrationStartDate\"]]],null],[28,[\"validationErrors\",\"registrationStartDate\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"registrationEndDate\",\"edit-registrationenddate\",\"Registration Closing (dd/mm/yyyy)\",true,[33,[\"millis-to-date\"],[[28,[\"tournament\",\"registrationEndDate\"]]],null],[28,[\"validationErrors\",\"registrationEndDate\"]]]]],false],[0,\"\\n                \"],[14],[0,\"\\n                \"],[11,\"div\",[]],[15,\"class\",\"tournament-form-inner-box\"],[13],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"sportName\",\"edit-sportname\",\"Sport Name\",true,[28,[\"tournament\",\"sportName\"]],[28,[\"validationErrors\",\"sportName\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"select-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"options\",\"selectedValue\",\"isRequired\",\"errorMessage\"],[\"sportType\",\"edit-sporttype\",\"Sport Type\",[28,[\"sportTypeOptions\"]],[28,[\"tournament\",\"sportType\"]],true,[28,[\"validationErrors\",\"sportType\"]]]]],false],[0,\"\\n                    \"],[1,[33,[\"text-input\"],null,[[\"inputName\",\"inputId\",\"labelName\",\"isRequired\",\"defaultValue\",\"errorMessage\"],[\"teamSize\",\"edit-teamsize\",\"Team Size\",true,[28,[\"tournament\",\"teamSize\"]],[28,[\"validationErrors\",\"teamSize\"]]]]],false],[0,\"\\n                \"],[14],[0,\"\\n            \"],[14],[0,\"\\n            \"],[1,[33,[\"general-button\"],null,[[\"class\",\"type\",\"buttonName\"],[\"br-blue bg-blue ft-white soft-corner\",\"submit\",\"Save\"]]],false],[0,\"\\n        \"],[14],[0,\"\\n\"]],\"locals\":[]},null],[14],[0,\"\\n\\n\"],[1,[26,[\"outlet\"]],false],[0,\"\\n\"]],\"locals\":[],\"named\":[],\"yields\":[],\"hasPartials\":false}", "meta": { "moduleName": "tournament-management-system/templates/tournaments/tournament/edit.hbs" } });
 });
 define("tournament-management-system/utils/check-characters-present", ["exports"], function (exports) {
   "use strict";
@@ -6759,7 +8290,7 @@ define("tournament-management-system/utils/check-date-valid", ["exports", "tourn
   }();
 
   function checkDateValid(date) {
-    var _date$split$map = date.split("/").map(Number),
+    var _date$split$map = date.split(/[-\/:]/).map(Number),
         _date$split$map2 = _slicedToArray(_date$split$map, 3),
         day = _date$split$map2[0],
         month = _date$split$map2[1],
@@ -7180,8 +8711,8 @@ define("tournament-management-system/utils/limit-calls", ["exports"], function (
         };
     };
 });
-define("tournament-management-system/utils/millis-to-date", ["exports"], function (exports) {
-  "use strict";
+define('tournament-management-system/utils/millis-to-date', ['exports'], function (exports) {
+  'use strict';
 
   Object.defineProperty(exports, "__esModule", {
     value: true
@@ -7191,7 +8722,11 @@ define("tournament-management-system/utils/millis-to-date", ["exports"], functio
     if (!millis) {
       return "Not Specified";
     }
-    return new Date(millis).toLocaleDateString();
+    return new Date(millis).toLocaleDateString('en-GB', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/\//g, '-');;
   }
 });
 define("tournament-management-system/utils/millis-to-time", ["exports"], function (exports) {
@@ -7206,6 +8741,72 @@ define("tournament-management-system/utils/millis-to-time", ["exports"], functio
       return "Not Specified";
     }
     return new Date(millis).toLocaleTimeString('en-US', { hour12: true });
+  }
+});
+define('tournament-management-system/utils/password-validator', ['exports'], function (exports) {
+  'use strict';
+
+  Object.defineProperty(exports, "__esModule", {
+    value: true
+  });
+  exports.default = passwordValidator;
+  function passwordValidator(password) {
+    if (!password) {
+      return false;
+    }
+    var lwrCse = 0;
+    var uprCse = 0;
+    var digits = 0;
+    var splchs = 0;
+    if (password.length < 8) {
+      return "Password must be atleast 8 character long";
+    }
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+      for (var _iterator = password[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+        var ch = _step.value;
+
+        if (ch >= 'a' && ch <= 'z') {
+          lwrCse++;
+        } else if (ch >= 'A' && ch <= 'Z') {
+          uprCse++;
+        } else if (ch >= '0' && ch <= '9') {
+          digits++;
+        } else {
+          splchs++;
+        }
+      }
+    } catch (err) {
+      _didIteratorError = true;
+      _iteratorError = err;
+    } finally {
+      try {
+        if (!_iteratorNormalCompletion && _iterator.return) {
+          _iterator.return();
+        }
+      } finally {
+        if (_didIteratorError) {
+          throw _iteratorError;
+        }
+      }
+    }
+
+    if (!lwrCse) {
+      return "Password must contain atleast one lower case character";
+    }
+    if (!uprCse) {
+      return "Password must contain atleast one upper case character";
+    }
+    if (!digits) {
+      return "Password must contain atleast one digit";
+    }
+    if (!splchs) {
+      return "Password must contain atleast one special character";
+    }
+    return '';
   }
 });
 define('tournament-management-system/utils/rsa-encrypter', ['exports'], function (exports) {
@@ -7337,7 +8938,8 @@ define('tournament-management-system/utils/tournament-posters', ['exports'], fun
     running: 'images/tournament-posters/running-tournament.png',
     coding: 'images/tournament-posters/binary-screen.png',
     chess: 'images/tournament-posters/chess-tournament.png',
-    kabbadi: 'images/tournament-posters/kabbadi-tournament.png'
+    kabbadi: 'images/tournament-posters/kabbadi-tournament.png',
+    figma: 'images/tournament-posters/figma-tournament.png'
   };
 });
 

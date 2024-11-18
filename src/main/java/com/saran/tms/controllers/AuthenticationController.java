@@ -98,12 +98,6 @@ public class AuthenticationController implements Controller {
 		}
 		
 		HttpSession session = request.getSession(true);
-		
-		Map<String, String> headers = request.getHeaders();
-			
-		session.setAttribute("user-agent", headers.get("user-agent"));
-		session.setAttribute("sec-ch-ua", headers.get("sec-ch-ua"));
-		session.setAttribute("sec-ch-ua-platform", headers.get("sec-ch-ua-platform"));
 
 		Long userId = (Long) user.getUserId();
 		Short userRole = (Short) user.getRole();
@@ -114,10 +108,10 @@ public class AuthenticationController implements Controller {
 		session.setAttribute("organizationId", organizationId);
 		session.setMaxInactiveInterval(86400);
 		
-		Cookie jsessionCookie = new Cookie("JSESSIONID", session.getId());  
-		jsessionCookie.setMaxAge(86400);  
-		jsessionCookie.setHttpOnly(true);
-		jsessionCookie.setPath("/tms"); 
+		Cookie jsessionidCookie = new Cookie("JSESSIONID", session.getId());  
+		jsessionidCookie.setPath("/tms");
+		jsessionidCookie.setMaxAge(86400);
+		jsessionidCookie.setHttpOnly(true);
 			
 		JSONObject userData = ModelJsonParser.parse(user);
 		
@@ -125,7 +119,7 @@ public class AuthenticationController implements Controller {
 		jsonData.put("data", userData);
 		jsonData.put("message", "User logged in successfully");
 		
-		return new ResponseData(StatusCodes.OK, jsonData).addCookie(jsessionCookie);
+		return new ResponseData(StatusCodes.OK, jsonData).addCookie(jsessionidCookie);
 
 	}
 	
@@ -191,6 +185,7 @@ public class AuthenticationController implements Controller {
 		user.setRole(role);
 		user.setPassword(hashedPassword);	
 		
+		
 		if(!ModelValidator.validateModel(user)) {
 			throw new ResponseException(StatusCodes.BAD_REQUEST, "Provided data is not valid or malformed");
 		}
@@ -231,8 +226,8 @@ public class AuthenticationController implements Controller {
 		
 		Long userId = reqBody.optLong("userId");
 
-		if(userId == null) {
-			throw new ResponseException(StatusCodes.BAD_REQUEST, "User id not provided");
+		if(userRole == UserRoles.ORGANIZATION_MEMBER || userId == null) {
+			userId = requestUserId;
 		}
 		
 		UserModel user = UserService.findUserById(new Params(Map.ofEntries(Map.entry("user_id", userId.toString()))));
@@ -241,40 +236,35 @@ public class AuthenticationController implements Controller {
 		
 		String privateKeyFilePath = System.getenv("PRIVATE_KEY_PATH");
 		
-		switch(userRole) {
-			case ORGANIZATION_MEMBER:
-				if(requestUserId != userId) {
-					throw new ResponseException(StatusCodes.FORBIDDEN, "You are not allowed to perform this operation");
-				}
-				String hashedPassword = user.getPassword();
-				String oldPassword = reqBody.optString("oldPassword");
-				if(oldPassword == null) {
-					throw new ResponseException(StatusCodes.UNAUTHORIZED, "Old password not provided");
-				}
-				
-				String decryptedOldPassword = RSADecryptor.decrypt(oldPassword, privateKeyFilePath);
-				
-				boolean isMatches = PasswordBCrypter.verifyPassword(decryptedOldPassword, hashedPassword);
-				if(!isMatches) {
-					throw new ResponseException(StatusCodes.UNAUTHORIZED, "Invalid credentials");
-				}
-				newPassword = reqBody.optString("newPassword");
-				break;
-				
-			case ORGANIZATION_ADMIN:
+		if(userId != requestUserId) {
+			if(userRole == UserRoles.APP_ADMIN) {
+				newPassword = reqBody.optString("password");
+			}
+			else if(userRole == UserRoles.ORGANIZATION_ADMIN) {
 				UserModel orgAdmin = UserService.findUserById(new Params(Map.ofEntries(Map.entry("user_id", requestUserId.toString()))));
 				if(orgAdmin.getOrganizationId() != user.getOrganizationId()) {
 					throw new ResponseException(StatusCodes.FORBIDDEN, "You are not allowed to perform this operation");
 				}
 				newPassword = reqBody.optString("password");
-				break;
-				
-			case APP_ADMIN:
-				newPassword = reqBody.optString("password");
-				break;
-				
-			default:
+			}
+			else {
 				throw new ResponseException(StatusCodes.FORBIDDEN, "You are not allowed to perform this operation");
+			}
+		}
+		else {
+			String oldPassword = reqBody.optString("oldPassword");
+			if(oldPassword == null) {
+				throw new ResponseException(StatusCodes.UNAUTHORIZED, "Old password not provided");
+			}
+			String hashedPassword = user.getPassword();
+			
+			String decryptedOldPassword = RSADecryptor.decrypt(oldPassword, privateKeyFilePath);
+			
+			boolean isMatches = PasswordBCrypter.verifyPassword(decryptedOldPassword, hashedPassword);
+			if(!isMatches) {
+				throw new ResponseException(StatusCodes.UNAUTHORIZED, "Invalid credentials");
+			}
+			newPassword = reqBody.optString("newPassword");
 		}
 
 		if(newPassword == null) {
@@ -282,7 +272,6 @@ public class AuthenticationController implements Controller {
 		}
 		
 		String decryptedNewPassword = RSADecryptor.decrypt(newPassword, privateKeyFilePath);
-		
 		
 		String hashedPassword = PasswordBCrypter.encryptPassword(decryptedNewPassword);
 		

@@ -39,8 +39,6 @@ public class RequestData {
 				this.body = parseBody(request.getReader());
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
-			ApplicationLogger.log(Level.SEVERE, "Error while parsing request body", e);
 			throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
 		}
 	}
@@ -117,6 +115,14 @@ public class RequestData {
 			return null;
 		}
 		return (Long) session.getAttribute("userId");
+	}
+	
+	public Long getOrganizationId() {
+		HttpSession session = getSession(false);
+		if(session == null) {
+			return null;
+		}
+		return (Long) session.getAttribute("organizationId");
 	}
 
 	public HttpSession getSession(boolean createdIfNotExists) {
