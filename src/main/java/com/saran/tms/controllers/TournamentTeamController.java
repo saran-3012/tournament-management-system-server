@@ -37,8 +37,6 @@ import com.saran.tms.services.TournamentTeamService;
 @RouteGroup(path="/api/v1")
 public class TournamentTeamController implements Controller {
 	
-//	EXPERIMENTAL FOR CONCURRENCY CONTROL
-	
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/teams", method="POST", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData saveTeam(RequestData request) throws ResponseException {
 		
@@ -137,77 +135,6 @@ public class TournamentTeamController implements Controller {
 		
 		return new ResponseData(StatusCodes.CREATED, jsonData);
 	}
-	
-	
-//	ORIGINAL IMPLEMENTATION
-	
-//	@Route(path="/orgs/:org_id/tournaments/:tournament_id/teams", method="POST", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
-//	public ResponseData saveTeam(RequestData request) throws ResponseException {
-//		
-//		Params params = request.getParams();
-//		
-//		Long tournamentId = null;
-//		try {
-//			tournamentId = Long.parseLong(params.get("tournament_id"));
-//		}
-//		catch(NumberFormatException e) {
-//			throw new ResponseException(StatusCodes.BAD_REQUEST, "Invalid tournament id");
-//		}
-//		
-//		List<Model> tournamentDetails = TournamentService.findTournamentByIdWithRegiteredCount(params);
-//		
-//		JSONObject tournamentData = ModelJsonParser.parseAndMerge(tournamentDetails);
-//		
-//		short tournamentStatus = (short) tournamentData.optInt("tournamentStatus");
-//		if(tournamentStatus == 2) {
-//			throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has already completed");
-//		}
-//		if(tournamentStatus == 3) {
-//			throw new ResponseException(StatusCodes.BAD_REQUEST, "Tournament has been cancelled");
-//		}
-//		
-//		long currentTimeMillis = Instant.now().toEpochMilli();
-//		
-//		long tournamentRegistrationStartDate = tournamentData.optLong("registrationStartDate");
-//		long tournamentRegistrationEndDate = tournamentData.optLong("registrationEndDate");
-//		
-//		if(currentTimeMillis < tournamentRegistrationStartDate) {
-//			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration not yet started");
-//		}
-//		
-//		if(currentTimeMillis > tournamentRegistrationEndDate) {
-//			throw new ResponseException(StatusCodes.PRECONDITION_FAILED, "Registration period has been completed");
-//		}
-//		
-//		int maxParticipation = (int) tournamentData.optInt("maxParticipation");
-//		int registrationCount = (int) tournamentData.optInt("count");
-//		
-//		if(registrationCount >= maxParticipation) {
-//			throw new ResponseException(StatusCodes.CONFLICT, "Maximum number of teams registered");
-//		}
-//		
-//		JSONObject reqBody = request.getBody();
-//
-//		TournamentTeamModel team = (TournamentTeamModel) JsonModelParser.parse(reqBody, TournamentTeamModel.class);
-//		team.setTournamentId(tournamentId);
-//		
-//		TournamentTeamModel newTeam = TournamentTeamService.saveTeam(team);
-//		
-//		TeamMemberModel teamMember = new TeamMemberModel();
-//		
-//		teamMember.setUserId(newTeam.getTeamLeaderId());
-//		teamMember.setTeamId(newTeam.getTeamId());
-//		
-//		TeamMemberModel teamLeader = TeamMemberService.saveTeamMember(teamMember);
-//		
-//		JSONObject teamData = ModelJsonParser.parseAndMerge(Arrays.asList(newTeam, teamLeader));
-//
-//		JSONObject jsonData = new JSONObject();
-//		jsonData.put("data", teamData);
-//		jsonData.put("message", "Team registered successfully");
-//		
-//		return new ResponseData(StatusCodes.CREATED, jsonData);
-//	}
 
 	@Route(path="/orgs/:org_id/tournaments/:tournament_id/teams/:team_id", method="GET", allowedRoles={UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER})
 	public ResponseData findTeam(RequestData request) throws ResponseException {

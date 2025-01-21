@@ -8,8 +8,12 @@
 </head>
 <body>
 	<%
-	    
-		request.getRequestDispatcher("/index.html").forward(request, response);
+	    if(request.getRequestURI().equals("/tms/app")){
+	    	response.sendRedirect("/tms/app/");
+	    }
+	    else{
+			request.getRequestDispatcher("/index.html").forward(request, response);
+	    }
 	%>
 </body>
 </html>

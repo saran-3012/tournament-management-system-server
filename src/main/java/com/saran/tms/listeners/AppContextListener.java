@@ -6,10 +6,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
+import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -26,7 +29,10 @@ import com.saran.tms.controllers.UserController;
 import com.saran.tms.enums.Constraints;
 import com.saran.tms.logger.ApplicationLogger;
 import com.saran.tms.routers.Router;
+import com.saran.tms.services.MonitoringService;
 import com.saran.tms.test.Main;
+
+import redis.clients.jedis.UnifiedJedis;
 
 /**
  * Application Lifecycle Listener implementation class AppContextListener
@@ -36,6 +42,7 @@ import com.saran.tms.test.Main;
 public class AppContextListener implements ServletContextListener {
 
 	Thread cleanupSchedulerThread;
+	Thread appStatsThread;
     
 	public AppContextListener() {}
 
@@ -170,7 +177,7 @@ public class AppContextListener implements ServletContextListener {
         ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:Teams");
         ConcurrencyLimiterFactory.initializeConcurrencyLimiterPool("TournamentRegistration:TeamMembers");
 
-        Runnable cleanupScheduler = () -> {
+        final Runnable cleanupScheduler = () -> {
         	while(true) {
         		try {
 					Thread.sleep(1000 * 60 * 60);
@@ -185,6 +192,33 @@ public class AppContextListener implements ServletContextListener {
         cleanupSchedulerThread = new Thread(cleanupScheduler);
         cleanupSchedulerThread.setDaemon(true);
         cleanupSchedulerThread.start();
+        
+        
+        // App stats monitoring
+        
+        final Runnable appStatsPersister = () -> {
+    		
+    		while(true) {
+    			
+    			MonitoringService.persistLiveAppStats();
+    			MonitoringService.cleanupLiveAppStats(3 * 60 * 60 * 1000);
+    			try {
+    				Thread.sleep(1000 * 60 * 5);
+    			} catch (InterruptedException e) {
+    				e.printStackTrace();
+    				ApplicationLogger.log(Level.SEVERE, "Scheduler execution failed", e);
+    			}
+    		}
+    		
+    	};
+        
+    	MonitoringService.persistStaticAppStats();
+        appStatsThread = new Thread(appStatsPersister);
+        appStatsThread.setDaemon(true);
+        appStatsThread.start();
+        
+        
+        
     	
 //    	Main.main(null); // TESTING
     }
@@ -215,6 +249,17 @@ public class AppContextListener implements ServletContextListener {
         	ApplicationLogger.log(Level.WARNING, "Scheduler thread not stopped properly", e);
         	e.printStackTrace();
         }
+        
+        // app stats scheduler thread
+        try {        	
+        	appStatsThread.stop();
+        	ApplicationLogger.log(Level.CONFIG, "App stats thread stopped");
+        }
+        catch(Exception e) {
+        	ApplicationLogger.log(Level.WARNING, "Scheduler thread not stopped properly", e);
+        	e.printStackTrace();
+        }
+        
         
         // Close logger
         ApplicationLogger.log(Level.CONFIG, "Closing application logger");

@@ -37,12 +37,17 @@
     <!-- CORS Filter -->
 
     
-   <!--  <filter>
+    <filter>
         <filter-name>CorsFilter</filter-name>
         <filter-class>com.saran.tms.filters.CorsFilter</filter-class>
     </filter>
     
     <filter-mapping>
+        <filter-name>CorsFilter</filter-name>
+        <url-pattern>/admin/*</url-pattern>
+    </filter-mapping>
+    
+    <!-- <filter-mapping>
         <filter-name>CorsFilter</filter-name>
         <url-pattern>/api/*</url-pattern>
     </filter-mapping>
@@ -85,6 +90,12 @@
     <servlet-mapping>
          <servlet-name>ApiVersionOne</servlet-name>
          <url-pattern>/api/v1/*</url-pattern>
+    </servlet-mapping>
+    
+    <!-- This will removed later -->
+    <servlet-mapping>
+         <servlet-name>ApiVersionOne</servlet-name>
+         <url-pattern>/admin/v1/*</url-pattern>
     </servlet-mapping>
     
     <!-- Authentication API -->
