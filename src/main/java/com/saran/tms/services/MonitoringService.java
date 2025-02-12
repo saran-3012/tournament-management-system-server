@@ -1,676 +1,365 @@
 package com.saran.tms.services;
 
-import java.lang.management.ClassLoadingMXBean;
-import java.lang.management.CompilationMXBean;
-import java.lang.management.GarbageCollectorMXBean;
-import java.lang.management.LockInfo;
+import java.lang.instrument.Instrumentation;
 import java.lang.management.ManagementFactory;
-import java.lang.management.MemoryMXBean;
-import java.lang.management.MemoryPoolMXBean;
 import java.lang.management.MemoryUsage;
-import java.lang.management.MonitorInfo;
-import java.lang.management.OperatingSystemMXBean;
-import java.lang.management.RuntimeMXBean;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
-import java.sql.Timestamp;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+
+import javax.management.MBeanServer;
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.MalformedObjectNameException;
+import javax.management.Notification;
+import javax.management.ObjectName;
+import javax.management.openmbean.CompositeData;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.saran.monitor.InstrumentationRegistryMBean;
+import com.saran.monitor.JvmManagementBean;
+import com.saran.monitor.JvmManagementException;
+import com.saran.tms.logger.ApplicationLogger;
+import com.saran.tms.persistance.DataStoreConfig;
+import com.saran.tms.persistance.Persistance;
+import com.saran.tms.persistance.fs.FileConfig;
+import com.saran.tms.persistance.redis.RedisConfig;
+import com.saran.tms.persistance.redis.RedisStrategies;
 import com.saran.tms.routers.QueryParams;
-import com.saran.tms.utils.Utilities;
+import com.sun.management.GarbageCollectionNotificationInfo;
+import com.sun.management.GcInfo;
 
-import redis.clients.jedis.UnifiedJedis;
 import redis.clients.jedis.resps.Tuple;
 
 public class MonitoringService {
-	
-	
-	public static JSONObject retriveAppStats(QueryParams queryParams) {
-		long startDate = queryParams.getLong("start_date");
-		long endDate = queryParams.getLong("end_date");
-		long startTime = queryParams.getLong("start_time");
-		long endTime = queryParams.getLong("end_time");
-		
 
+	private static JvmManagementBean jvmBean;
+	
+	private final static String REDIS_HOST = "localhost";
+	private final static int REDIS_PORT    = 6379;	
+	
+	private final static DataStoreConfig redisConfig = new RedisConfig(REDIS_HOST, REDIS_PORT);
+	
+	private final static Persistance redisCache     = Persistance.getPersistance(Persistance.DataStores.REDIS, redisConfig);
+	private final static Persistance redisSortedSet = Persistance.getPersistance(Persistance.DataStores.REDIS, redisConfig)
+																 .setStrategy(RedisStrategies.sortedSetStrategy);
+	
+	private final static String staticAppStatsKey = "staticAppStats";
+	private final static String liveAppStatsKey   = "liveAppStats";
+	private final static String gcNotificationKey = "gcNotification";
+	
+
+	private final static String FILE_STORAGE_FOLDER_PATH = "/Users/saran-pt7697/FileStorage/";
+	
+	private final static DataStoreConfig fileConfig = new FileConfig(FILE_STORAGE_FOLDER_PATH);
+	
+	private final static Persistance fileSystem = Persistance.getPersistance(Persistance.DataStores.FS, fileConfig);
+	
+
+	public static void initializeJvmBeam() {
 		
-        String staticAppStatsKey = "staticAppStats";
-        String liveAppStatsKey = "liveAppStats";
-        
-        UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
-        
-		String staticAppStatsString = jedis.get(staticAppStatsKey);
-		List<Tuple> rangeLiveAppStats = jedis.zrangeByScoreWithScores(liveAppStatsKey, startDate + startTime, endDate + endTime);
-		
-		jedis.close();
-		
-		JSONArray liveAppStats = new JSONArray();
-		
-		final int n = rangeLiveAppStats.size();
-		
-		for(int i=n-1; i>=0; i--) {
+			MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+	        
+	        ObjectName diagnosticCommandMBeanName = null;
+			try {
+				diagnosticCommandMBeanName = new ObjectName("com.sun.management:type=DiagnosticCommand");
+			} catch (MalformedObjectNameException e) {
+
+				e.printStackTrace();
+			}
 			
-			JSONObject liveAppStat = new JSONObject(rangeLiveAppStats.get(i).getElement());
-			liveAppStat.put("timestamp", new Timestamp((long) rangeLiveAppStats.get(i).getScore()).toString());
-			
-			liveAppStats.put(liveAppStat);
+
+
+
+//			
+//			 try {
+//				MBeanInfo mBeanInfo = mbs.getMBeanInfo(diagnosticCommandMBeanName);
+//				System.out.println("MBean Class: " + mBeanInfo.getClassName());
+//	            System.out.println("Description: " + mBeanInfo.getDescription());
+//	            System.out.println("Attributes:");
+//	            Arrays.stream(mBeanInfo.getAttributes()).forEach(attr -> {
+//	                System.out.println("\t" + attr.getName() + " (" + attr.getType() + ")");
+//	            });
+//	            System.out.println("Operations:");
+//	            Arrays.stream(mBeanInfo.getOperations()).forEach(op -> {
+//	                System.out.println("\t" + op.getName() + " (" + op.getReturnType() + ")");
+//	            });
+//			} catch (Exception e) {
+//				// TODO Auto-generated catch block
+//				e.printStackTrace();
+//			}
+//	        
+//
+//	        String[] commands = {};
+//	        try {
+//	            Object attribute = mbs.getAttribute(diagnosticCommandMBeanName, "DiagnosticCommandNames");
+//	            if (attribute instanceof String[]) {
+//	                commands = (String[]) attribute;
+//	            } else {
+//	                System.out.println("DiagnosticCommandNames is not of type String[]");
+//	            }
+//	        } catch (Exception e) {
+//	            System.out.println(e.getMessage());
+//	        }
+//	        
+//	        System.out.println("Available Diagnostic Commands:");
+//	        for (String command : commands) {
+//	            System.out.println(command);
+//	        }
+	        
+
+//	        String[] gcClassHistogramArgs = new String[0];  
+//	        String result = null;
+//			try {
+//				result = (String) mbs.invoke(diagnosticCommandMBeanName, "gcClassHistogram", new Object[]{gcClassHistogramArgs}, new String[]{String[].class.getName()});
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//			}
+//	        System.out.println("Class Histogram:\n" + result.substring(0, 100));
+	        
+	        
+//		try {
+//            // Get the platform MBeanServer
+//            MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+//
+//            // ObjectName for the DiagnosticCommandMBean
+//            ObjectName diagnosticCommandMBeanName = new ObjectName("com.sun.management:type=DiagnosticCommand");
+//
+//            // List of operations that return statistics
+//            Map<String, String[]> operations = new HashMap<>();
+//            operations.put("compilerCodeHeapAnalytics", new String[0]); //
+//            operations.put("compilerCodecache", new String[0]); //
+//            operations.put("compilerCodelist", new String[0]); //
+//            operations.put("compilerQueue", new String[0]); //
+//            operations.put("gcClassHistogram", new String[0]); //
+//            operations.put("gcClassStats", new String[0]); //
+//            operations.put("gcHeapInfo", new String[0]); //
+//            operations.put("gcFinalizerInfo", new String[0]); //
+//            operations.put("help", new String[0]);
+//            operations.put("threadPrint", new String[0]); //
+//            operations.put("vmCheckCommercialFeatures", new String[0]); --
+//            operations.put("vmClassHierarchy", new String[0]); //
+//            operations.put("vmClassloaderStats", new String[0]); //
+//            operations.put("vmClassloaders", new String[0]); //
+//            operations.put("vmCommandLine", new String[0]); //
+//            operations.put("vmDynlibs", new String[0]); // 
+//            operations.put("vmFlags", new String[0]); //
+//            operations.put("vmInfo", new String[0]); //
+//            operations.put("vmLog", new String[0]); //
+//            operations.put("vmMetaspace", new String[0]); //
+//            operations.put("vmNativeMemory", new String[0]); //
+//            operations.put("vmPrintTouchedMethods", new String[0]); //
+//            operations.put("vmStringtable", new String[0]); //
+//            operations.put("vmSymboltable", new String[0]); //
+//            operations.put("vmSystemProperties", new String[0]); // 
+//            operations.put("vmSystemdictionary", new String[0]); //
+//            operations.put("vmUptime", new String[0]); //
+//            operations.put("vmVersion", new String[0]); //
+//
+//            System.out.println("Invoking Diagnostic Commands for Stats...");
+//            for (Map.Entry<String, String[]> entry : operations.entrySet()) {
+//                try (OutputStream os = new FileOutputStream("/Users/saran-pt7697/DignosticBeanTest/" + entry.getKey() + ".txt")){
+//                    String operationName = entry.getKey();
+//                    String[] params = entry.getValue();
+//                    String[] signature = new String[]{String[].class.getName()};
+//
+//                    // Invoke the MBean operation
+//                    String result = (String) mbs.invoke(diagnosticCommandMBeanName, operationName, new Object[] {params}, signature);                
+//                    os.write(result.getBytes());
+//                    
+//                } catch (Exception e) {
+//                    System.out.println("Error invoking " + entry.getKey() + ": " + e.getMessage());
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//	        
+//	        
+//	        
+//	        
+		
+		ObjectName objectName = null;
+		try {
+			objectName = new ObjectName("com.saran:type=InstrumentationRegistry");
+		} catch (MalformedObjectNameException e) {
+			e.printStackTrace();
 		}
 		
+		
+		InstrumentationRegistryMBean instrumentationRegistry = MBeanServerInvocationHandler.newProxyInstance(mBeanServer, objectName,
+				InstrumentationRegistryMBean.class, false);
+		Instrumentation instrumentation = instrumentationRegistry.getInstrumentation();
+
+		jvmBean = JvmManagementBean.getInstance(instrumentation);
+		
+		jvmBean.addGcListener((Notification notification, Object handback) -> {
+			if (GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION.equals(notification.getType())) {
+				
+				long currentMillisValue = Instant.now().toEpochMilli();
+                GarbageCollectionNotificationInfo gcNotificationInfo = GarbageCollectionNotificationInfo.from((CompositeData) notification.getUserData());
+                GcInfo gcInfo = gcNotificationInfo.getGcInfo();
+
+                JSONObject gcData = new JSONObject();
+                
+                gcData.put("gcName", gcNotificationInfo.getGcName());
+                gcData.put("gcAction", gcNotificationInfo.getGcAction());
+                gcData.put("gcCause", gcNotificationInfo.getGcCause());
+                gcData.put("gcStartTime", gcInfo.getStartTime());
+                gcData.put("gcEndTime", gcInfo.getEndTime());
+                gcData.put("gcDuration", gcInfo.getDuration());
+                
+                JSONObject memoryBeforeGc = new JSONObject();
+                for(final Map.Entry<String, MemoryUsage> gcMemoryUsage : gcInfo.getMemoryUsageBeforeGc().entrySet()){
+                	JSONObject memoryUsageData = new JSONObject();
+                	MemoryUsage memUsage = gcMemoryUsage.getValue();
+                	
+                	memoryUsageData.put("allocatedMemory", memUsage.getCommitted());
+                	memoryUsageData.put("usedMemory", memUsage.getUsed());
+                	
+                	memoryBeforeGc.put(gcMemoryUsage.getKey(), memoryUsageData);
+				}
+                
+                
+                JSONObject memoryAfterGc = new JSONObject();
+                for(final Map.Entry<String, MemoryUsage> gcMemoryUsage : gcInfo.getMemoryUsageAfterGc().entrySet()){
+                	JSONObject memoryUsageData = new JSONObject();
+                	MemoryUsage memUsage = gcMemoryUsage.getValue();
+                	
+                	memoryUsageData.put("allocatedMemory", memUsage.getCommitted());
+                	memoryUsageData.put("usedMemory", memUsage.getUsed());
+                	
+                	memoryAfterGc.put(gcMemoryUsage.getKey(), memoryUsageData);
+				}
+                
+                gcData.put("memoryBeforeGc", memoryBeforeGc);
+                gcData.put("memoryAfterGc", memoryAfterGc);
+                
+                
+                redisSortedSet.write(gcNotificationKey, (double) currentMillisValue, gcData.toString()); 
+            
+            }
+			
+		});
+		
+		
+		try {
+		
+			String vmTouchedMethods = jvmBean.getVmTouchedMethods();
+			((FileConfig) fileConfig).setFileName("vmTouchedMethods.txt");
+			fileSystem.write(vmTouchedMethods);
+			
+			
+			((FileConfig) fileConfig).setFileName("class-histogram.txt");
+			String classHistogram = jvmBean.getClassHistogram();
+			fileSystem.write(classHistogram);
+			String preSubstring = classHistogram.substring(0, 200);
+			fileSystem.update("*.", "REDIS");
+
+			
+			
+			
+		} catch (JvmManagementException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	public static void registerObject(String refKey, Object objRef) {
+		jvmBean.registerObjectReference(refKey, objRef);
+	}
+
+	@SuppressWarnings("unchecked")
+	public static JSONObject retriveAppStats(QueryParams queryParams) {
+		double startDate = queryParams.getLong("start_date");
+		double endDate = queryParams.getLong("end_date");
+		double startTime = queryParams.getLong("start_time");
+		double endTime = queryParams.getLong("end_time");
+		
+		String staticAppStatsString = (String) redisCache.read(staticAppStatsKey);
+		List<Tuple> rangeLiveAppStats = (List<Tuple>) redisSortedSet.read(liveAppStatsKey, startDate + startTime, endDate + endTime);
+		
+
+		JSONArray liveAppStats = new JSONArray();
+
+		final int n = rangeLiveAppStats.size();
+
+		for (int i = n - 1; i >= 0; i--) {
+
+			JSONObject liveAppStat = new JSONObject(rangeLiveAppStats.get(i).getElement());
+			liveAppStat.put("timestamp", (long) rangeLiveAppStats.get(i).getScore());
+
+			liveAppStats.put(liveAppStat);
+		}
+
 		JSONObject staticAppStats = new JSONObject(staticAppStatsString);
-		
+
 		JSONObject appStatsData = new JSONObject();
-		
+
 		appStatsData.put("static", staticAppStats);
 		appStatsData.put("live", liveAppStats);
 
 		return appStatsData;
 	}
 	
-	
-	@Deprecated
-	public static void persistAppStats() {
+	public static JSONArray getAvailableObjectReferences() {
 		
-		JSONObject appStats = new JSONObject();
+		JSONArray availableRefs = new JSONArray(jvmBean.getAllReferenceKeys());
 		
-		appStats.put("memoryStats", extractMemoryStats());
-		appStats.put("threadStats", extractThreadStats());
-		appStats.put("gcStats", extractGarbageCollectorStats());
-		appStats.put("compilationStats", extractCompilationStats());
-		appStats.put("runtimeStats", extractRuntimeStats());
-		appStats.put("osStats", extractOperatingSystemStats());
-		appStats.put("classLoadingStats", extractClassLoadingStats());
-		
-		
-		String appStatsKey = "appstats";
-		long currentMillisValue = Instant.now().toEpochMilli();
-		
-		
-		UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
-		jedis.zadd(appStatsKey, currentMillisValue, appStats.toString());
-		jedis.close();
+		return availableRefs;
 	}
-	
+
+	public static JSONObject retriveObjectsSize(QueryParams queryParams) {
+		String[] selectedObjects = queryParams.getAll("selected_object");
+		JSONObject refObjSizes = new JSONObject();
+		for (final String objRefKey : selectedObjects) {
+			try {
+				refObjSizes.put(objRefKey, (jvmBean.getReferenceObjectSize(objRefKey) / (1024.0 * 1024.0)) + "mb");
+			} catch (Exception e) {
+				ApplicationLogger.log(Level.SEVERE, e.getMessage(), e);
+			}
+		}
+		return refObjSizes;
+	}
+
 	public static void persistStaticAppStats() {
-		JSONObject staticAppStats = extractStaticAppStats();
+		JSONObject staticAppStats = null;
+		try {
+			staticAppStats = jvmBean.getStaticJvmStats();
+		} catch (JvmManagementException e) {
+			staticAppStats = new JSONObject();
+			e.printStackTrace();
+		}
+
 		
-		String staticAppStatsKey = "staticAppStats";
-		
-		UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
-		jedis.set(staticAppStatsKey, staticAppStats.toString());
-		jedis.close();
+		redisCache.write(staticAppStatsKey, staticAppStats.toString());
 	}
-	
+
 	public static void persistLiveAppStats() {
-		JSONObject liveAppStats = extractLiveAppStats();
+		JSONObject liveAppStats = null;
+		try {
+			liveAppStats = jvmBean.getDynamicJvmStats();
+		} catch (JvmManagementException e) {
+			liveAppStats = new JSONObject();
+			e.printStackTrace();
+		}
+
+
+		double currentMillisValue = Instant.now().toEpochMilli();
 		
-		String liveAppStatsKey = "liveAppStats";
-		long currentMillisValue = Instant.now().toEpochMilli();
-		
-		
-		UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
-		jedis.zadd(liveAppStatsKey, currentMillisValue, liveAppStats.toString());
-		jedis.close();
+		redisSortedSet.write(liveAppStatsKey, currentMillisValue, liveAppStats.toString());
+
 	}
-	
-	@Deprecated
-	public static void cleanupAppStats() {
-		String appStatsKey = "appstats";
-		long currentMillisValue = Instant.now().toEpochMilli();
-		
-		long endMillisValue = currentMillisValue - (3 * 60 * 60 * 1000);
-		
-		UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
-		jedis.zremrangeByScore(appStatsKey, 0, endMillisValue);
-		jedis.close();
-	}
-	
+
 	public static void cleanupLiveAppStats(long millis) {
-		String liveAppStatsKey = "liveAppStats";
-		long currentMillisValue = Instant.now().toEpochMilli();
+
+		double currentMillisValue = Instant.now().toEpochMilli();
+		double endMillisValue = currentMillisValue - millis;
 		
-		long endMillisValue = currentMillisValue - millis;
 		
-		UnifiedJedis jedis = new UnifiedJedis("redis://localhost:6379");
-		jedis.zremrangeByScore(liveAppStatsKey, 0, endMillisValue);
-		jedis.close();
+		redisSortedSet.delete(liveAppStatsKey, 0.0, endMillisValue);
 	}
-	
-	// ------------------- Isolating static and dynamic data ---------------------  //	
-	
-	public static JSONObject extractStaticAppStats() {
-		
-		MemoryMXBean memoryMxBean = ManagementFactory.getMemoryMXBean();
-		
-        MemoryUsage heapMemoryUsage = memoryMxBean.getHeapMemoryUsage();
-		JSONObject heapMemoryData = new JSONObject();
-		try {			
-			heapMemoryData.put("initMemory", Utilities.convertByteUnit(heapMemoryUsage.getInit())); // Static
-			heapMemoryData.put("maxMemory", Utilities.convertByteUnit(heapMemoryUsage.getMax())); // Static
-		} 
-		catch(Exception e) {}
-		
-        MemoryUsage nonHeapMemoryUsage = memoryMxBean.getNonHeapMemoryUsage();
-        JSONObject nonHeapMemoryData = new JSONObject();
-		try {			
-			nonHeapMemoryData.put("initMemory", Utilities.convertByteUnit(nonHeapMemoryUsage.getInit())); // Static
-			nonHeapMemoryData.put("maxMemory", Utilities.convertByteUnit(nonHeapMemoryUsage.getMax())); // Static
-		} 
-		catch(Exception e) {}
-		
-		List<MemoryPoolMXBean> memoryPoolMxBeans = ManagementFactory.getMemoryPoolMXBeans();
-		JSONObject memorySpacesData = new JSONObject();
-		
-		for (MemoryPoolMXBean memoryPoolMxBean : memoryPoolMxBeans) {
-			JSONObject memoryPoolData = new JSONObject();
-			
-			MemoryUsage memoryUsage = memoryPoolMxBean.getUsage();
-			
-			memoryPoolData.put("initMemory", Utilities.convertByteUnit(memoryUsage.getInit()));
-			memoryPoolData.put("maxMemory", Utilities.convertByteUnit(memoryUsage.getMax()));
 
-			memoryPoolData.put("memoryManagerNames", new JSONArray(memoryPoolMxBean.getMemoryManagerNames()));
-			memoryPoolData.put("memoryType", memoryPoolMxBean.getType().toString());
-			
-			memorySpacesData.put(memoryPoolMxBean.getName(), memoryPoolData);
-		}
-		
-		JSONObject memoryData = new JSONObject();
-		memoryData.put("heapMemory", heapMemoryData);
-		memoryData.put("nonHeapMemory", nonHeapMemoryData);
-		memoryData.put("memorySpaces", memorySpacesData);
-		
-
-		
-		List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
-		JSONObject garbageCollectorStatsData = new JSONObject();
-
-        for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
-        	garbageCollectorStatsData.put(gcMXBean.getName(), new JSONArray(gcMXBean.getMemoryPoolNames()));	
-        }
-        
-        
-        
-        
-        RuntimeMXBean runtimeMXBean = ManagementFactory.getRuntimeMXBean();
-		Runtime runtime = Runtime.getRuntime();
-		JSONObject runtimeData = new JSONObject();
-			
-		runtimeData.put("jvmProcessId", runtimeMXBean.getPid()); // Static
-		runtimeData.put("jvmStartTime", new Timestamp(runtimeMXBean.getStartTime()).toString()); // Static
-		runtimeData.put("systemClassLoaderClassPath", runtimeMXBean.getClassPath()); // Static
-		runtimeData.put("libraryPath", runtimeMXBean.getLibraryPath()); // Static
-		runtimeData.put("managementSpecVersion", runtimeMXBean.getManagementSpecVersion()); // Static
-		runtimeData.put("jvmName", runtimeMXBean.getName()); // Static
-		runtimeData.put("jvmSpecName", runtimeMXBean.getSpecName()); // Static
-		runtimeData.put("jvmSpceVendor", runtimeMXBean.getSpecVendor()); // Static
-		runtimeData.put("jvmSpecVersion", runtimeMXBean.getSpecVersion()); // Static
-		runtimeData.put("jvmVmName", runtimeMXBean.getVmName()); // Static
-		runtimeData.put("jvmVmVendor", runtimeMXBean.getVmVendor()); // Static
-		runtimeData.put("jvmVmVersion", runtimeMXBean.getVmVersion()); // Static
-		runtimeData.put("jvmMaxMemory", Utilities.convertByteUnit(runtime.maxMemory())); // Static
-
-		
-		
-		
-		OperatingSystemMXBean osMXBean = ManagementFactory.getOperatingSystemMXBean();
-		
-		JSONObject osData = new JSONObject();
-
-		try {			
-			osData.put("osName", osMXBean.getName()); // Static
-			osData.put("osVersion", osMXBean.getVersion()); // Static
-			osData.put("osArchitecture", osMXBean.getArch()); // Static
-			osData.put("availableProcessor", osMXBean.getAvailableProcessors()); // Static
-		} catch(Exception e) {}
-		
-        if (osMXBean instanceof com.sun.management.OperatingSystemMXBean) {
-            com.sun.management.OperatingSystemMXBean sunOsMXBean = (com.sun.management.OperatingSystemMXBean) osMXBean;
-            try {    			
-            	osData.put("totalPhysicalMemorySize", Utilities.convertByteUnit(sunOsMXBean.getTotalPhysicalMemorySize())); // Static
-            	osData.put("totalSwapSpace", Utilities.convertByteUnit(sunOsMXBean.getTotalSwapSpaceSize())); // Static
-    		} catch(Exception e) {}
-        }
-        
-        
-        
-        JSONObject staticAppStats = new JSONObject();
-        
-        staticAppStats.put("memory", memoryData);
-        staticAppStats.put("gc", garbageCollectorStatsData);
-        staticAppStats.put("runtime", runtimeData);
-        staticAppStats.put("os", osData);
-		
-		return staticAppStats;
-	}
-	
-	
-	public static JSONObject extractLiveAppStats() {
-
-		MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
-		
-        MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
-		JSONObject heapMemoryData = new JSONObject();
-		try {			
-			heapMemoryData.put("usedMemory", Utilities.convertByteUnit(heapMemoryUsage.getUsed()));
-			heapMemoryData.put("allocatedMemory", Utilities.convertByteUnit(heapMemoryUsage.getCommitted()));
-		} finally {}
-		
-        MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
-        JSONObject nonHeapMemoryData = new JSONObject();
-		try {			
-			nonHeapMemoryData.put("usedMemory", Utilities.convertByteUnit(nonHeapMemoryUsage.getUsed()));
-			nonHeapMemoryData.put("allocatedMemory", Utilities.convertByteUnit(nonHeapMemoryUsage.getCommitted()));
-		} finally {}
-		
-		List<MemoryPoolMXBean> memoryPoolMXBeans = ManagementFactory.getMemoryPoolMXBeans();
-		JSONObject memorySpacesData = new JSONObject();
-		
-		for (MemoryPoolMXBean memoryPoolMxBean : memoryPoolMXBeans) {
-			JSONObject memoryPoolData = new JSONObject();
-			try {				
-				
-				if(memoryPoolMxBean.isCollectionUsageThresholdSupported()) {
-					memoryPoolData.put("collectionUsageThreshold", Utilities.convertByteUnit(memoryPoolMxBean.getCollectionUsageThreshold()));
-					memoryPoolData.put("collectionUsageThresholdCount", memoryPoolMxBean.getCollectionUsageThresholdCount());
-				}
-				
-				if(memoryPoolMxBean.isUsageThresholdSupported()) {
-					memoryPoolData.put("usageThreshold", Utilities.convertByteUnit(memoryPoolMxBean.getUsageThreshold()));
-					memoryPoolData.put("usageThresholdCount", memoryPoolMxBean.getUsageThresholdCount());
-				}
-				
-				try {
-					MemoryUsage cmu = memoryPoolMxBean.getCollectionUsage();
-					memoryPoolData.put("collectionAllocatedMemory", Utilities.convertByteUnit(cmu.getCommitted()));
-					memoryPoolData.put("collectionUsedMemory", Utilities.convertByteUnit(cmu.getUsed()));
-				} catch(Exception e) {}
-				
-				MemoryUsage pmu = memoryPoolMxBean.getPeakUsage();
-				memoryPoolData.put("peakAllocatedMemory", Utilities.convertByteUnit(pmu.getCommitted()));
-				memoryPoolData.put("peakUsedMemory", Utilities.convertByteUnit(pmu.getUsed()));
-				
-				MemoryUsage mu = memoryPoolMxBean.getUsage();
-				memoryPoolData.put("allocatedMemory", Utilities.convertByteUnit(mu.getCommitted()));
-				memoryPoolData.put("usedMemory", Utilities.convertByteUnit(mu.getUsed()));
-				
-			} 
-			catch(Exception e) {
-				e.printStackTrace();
-			}
-			memorySpacesData.put(memoryPoolMxBean.getName(), memoryPoolData);
-		}
-        
-		JSONObject memoryData = new JSONObject();
-		memoryData.put("heapMemory", heapMemoryData);
-		memoryData.put("nonHeapMemory", nonHeapMemoryData);
-		memoryData.put("memorySpaces", memorySpacesData);
-		
-		
-		
-		ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-
-		JSONObject threadUsageData = new JSONObject();
-		try {			
-			threadUsageData.put("activeThreadCount", threadMXBean.getThreadCount());
-			threadUsageData.put("peakThreadCount", threadMXBean.getPeakThreadCount());
-			threadUsageData.put("daemonThreadCount", threadMXBean.getDaemonThreadCount());
-			threadUsageData.put("totalThreadCount", threadMXBean.getTotalStartedThreadCount());
-			
-			long[] activeThreads = threadMXBean.getAllThreadIds();
-			threadUsageData.put("activeThreads", new JSONArray((activeThreads == null)? new Object[]{} : activeThreads));
-			
-			long[] deadlockedThreads = threadMXBean.findDeadlockedThreads();
-			threadUsageData.put("deadlockThreads", new JSONArray((deadlockedThreads == null)? new Object[]{} : deadlockedThreads));
-			
-			JSONObject threadInfosData = new JSONObject();
-			ThreadInfo[] threadInfos = threadMXBean.dumpAllThreads(true, true);
-			for(final ThreadInfo threadInfo : threadInfos) {
-				JSONObject threadInfoData = new JSONObject();
-				
-				threadInfoData.put("blockedTime", threadInfo.getBlockedTime() == -1? "-" : threadInfo.getBlockedTime() + " ms");
-				threadInfoData.put("blockedCount", threadInfo.getBlockedCount());
-				threadInfoData.put("lockName", threadInfo.getLockName());
-				threadInfoData.put("lockOwnerId", threadInfo.getLockOwnerId());
-				threadInfoData.put("threadPriority", threadInfo.getPriority());
-				threadInfoData.put("threadName", threadInfo.getThreadName());
-				threadInfoData.put("threadState", threadInfo.getThreadState());
-				threadInfoData.put("threadCpuTime", Utilities.upliftTimeUnit( threadMXBean.getThreadCpuTime(threadInfo.getThreadId()) ));
-				threadInfoData.put("threadUserTime", Utilities.upliftTimeUnit( threadMXBean.getThreadUserTime(threadInfo.getThreadId()) ));
-
-				StackTraceElement[] stkTraces = threadInfo.getStackTrace();
-				JSONArray stkTraceArray = new JSONArray();
-				for(final StackTraceElement stkTrace : stkTraces) {
-					stkTraceArray.put(stkTrace.toString());
-				}
-				threadInfoData.put("stackTrace", stkTraceArray);
-
-				// MAY BE ADDED LATER //
-//				MonitorInfo[] lckMonts = threadInfo.getLockedMonitors();
-//				LockInfo[] lckInfos = threadInfo.getLockedSynchronizers();
-//				LockInfo lckInfo = threadInfo.getLockInfo();
-				// MAY BE ADDED LATER //
-				
-				
-				
-				threadInfosData.put(((Long) threadInfo.getThreadId()).toString(), threadInfoData);
-				
-				
-//				---------------------
-//				
-//				long blkTime = threadInfo.getBlockedTime();
-//				long blkCount = threadInfo.getBlockedCount();
-				
-				// MAY BE ADDED LATER //
-//				MonitorInfo[] lckMonts = threadInfo.getLockedMonitors();
-//				LockInfo[] lckInfos = threadInfo.getLockedSynchronizers();
-//				LockInfo lckInfo = threadInfo.getLockInfo();
-//				String lckName = threadInfo.getLockName();
-				// MAY BE ADDED LATER //
-				
-//				long lckOwnerId = threadInfo.getLockOwnerId();
-//				int threadPriority = threadInfo.getPriority();
-//				StackTraceElement[] stkkTraces = threadInfo.getStackTrace();
-//				long threadId = threadInfo.getThreadId();
-//				String threadName = threadInfo.getThreadName();
-//				Thread.State threadState = threadInfo.getThreadState();
-//				
-//				long threadCpuTime = threadMXBean.getThreadCpuTime(threadInfo.getThreadId());
-//				long threadUserTime = threadMXBean.getThreadUserTime(threadInfo.getThreadId());
-			}
-			
-			threadUsageData.put("threadDump", threadInfosData);
-		} finally {}
-
-		
-		
-		List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
-		JSONObject garbageCollectorStatsData = new JSONObject();
-
-        for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
-
-        	JSONObject gcStatsData = new JSONObject();
-        	try {
-      
-        		gcStatsData.put("gcCount", gcMXBean.getCollectionCount());
-        		gcStatsData.put("gcTime", gcMXBean.getCollectionTime());
-    			
-    		} finally {}
-        	
-        	garbageCollectorStatsData.put(gcMXBean.getName(), gcStatsData);
-        }
-        
-        CompilationMXBean compilationMXBean = ManagementFactory.getCompilationMXBean();
-		 
-		JSONObject compilationData = new JSONObject();
-			
-		if(compilationMXBean.isCompilationTimeMonitoringSupported()) {
-			compilationData.put("compilerName", compilationMXBean.getName()); // Static
-			compilationData.put("compilationTime", compilationMXBean.getTotalCompilationTime());
-		}
-		
-		
-		
-		RuntimeMXBean runtimeMXBean = ManagementFactory.getRuntimeMXBean();
-		Runtime runtime = Runtime.getRuntime();
-		
-		JSONObject runtimeData = new JSONObject();
-	
-		try {			
-			runtimeData.put("jvmUpTime", runtimeMXBean.getUptime());
-			runtimeData.put("jvmTotalMemory", Utilities.convertByteUnit(runtime.totalMemory()));
-			runtimeData.put("jvmFreeMemory", Utilities.convertByteUnit(runtime.freeMemory()));
-		} finally {}
-		
-		
-		
-		
-		
-		OperatingSystemMXBean osMXBean = ManagementFactory.getOperatingSystemMXBean();
-		
-		JSONObject osData = new JSONObject();
-
-		try {			
-			osData.put("systemLoadAverage", osMXBean.getSystemLoadAverage());
-		} finally {}
-		
-        if (osMXBean instanceof com.sun.management.OperatingSystemMXBean) {
-            com.sun.management.OperatingSystemMXBean sunOsMXBean = (com.sun.management.OperatingSystemMXBean) osMXBean;
-            try {    			
-            	NumberFormat formatter = new DecimalFormat("#0.00%"); 
-            	osData.put("systemCpuLoad", formatter.format(sunOsMXBean.getSystemCpuLoad()));
-            	osData.put("processCpuLoad", formatter.format(sunOsMXBean.getProcessCpuLoad()));
-            	osData.put("freePhysicalMemorySize", Utilities.convertByteUnit(sunOsMXBean.getFreePhysicalMemorySize()));
-            	osData.put("freeSwapSpace", Utilities.convertByteUnit(sunOsMXBean.getFreeSwapSpaceSize()));
-    		} finally {}
-        }
-        
-        
-        ClassLoadingMXBean classLoadingMXBean = ManagementFactory.getClassLoadingMXBean();
-		
-		JSONObject classLoadingData = new JSONObject();
-		
-		try {			
-			classLoadingData.put("loadedClassCount", classLoadingMXBean.getLoadedClassCount());
-			classLoadingData.put("totalLoadedClassCount", classLoadingMXBean.getTotalLoadedClassCount());
-			classLoadingData.put("unloadedClassCount", classLoadingMXBean.getUnloadedClassCount());
-		} finally {}
-		
-		
-		JSONObject liveAppStats = new JSONObject();
-		
-		liveAppStats.put("memory", memoryData);
-		liveAppStats.put("thread", threadUsageData);
-        liveAppStats.put("gc", garbageCollectorStatsData);
-        liveAppStats.put("compilation", compilationData);
-        liveAppStats.put("runtime", runtimeData);
-        liveAppStats.put("os", osData);
-        liveAppStats.put("classLoading", classLoadingData);
-		
-		return liveAppStats;
-	}
-	
-	//	------------------------------------------------------------------  //
-	
-	public static JSONObject extractMemoryStats() {
-
-		MemoryMXBean memoryMXBean = ManagementFactory.getMemoryMXBean();
-		
-        MemoryUsage heapMemoryUsage = memoryMXBean.getHeapMemoryUsage();
-		JSONObject heapMemoryData = new JSONObject();
-		try {			
-			heapMemoryData.put("initMemory", heapMemoryUsage.getInit()); // Static
-			heapMemoryData.put("usedMemory", heapMemoryUsage.getUsed());
-			heapMemoryData.put("allocatedMemory", heapMemoryUsage.getCommitted());
-			heapMemoryData.put("maxMemory", heapMemoryUsage.getMax()); // Static
-		} finally {}
-		
-        MemoryUsage nonHeapMemoryUsage = memoryMXBean.getNonHeapMemoryUsage();
-        JSONObject nonHeapMemoryData = new JSONObject();
-		try {			
-			nonHeapMemoryData.put("initMemory", nonHeapMemoryUsage.getInit()); // Static
-			nonHeapMemoryData.put("usedMemory", nonHeapMemoryUsage.getUsed());
-			nonHeapMemoryData.put("allocatedMemory", nonHeapMemoryUsage.getCommitted());
-			nonHeapMemoryData.put("maxMemory", nonHeapMemoryUsage.getMax()); // Static
-		} finally {}
-		
-		List<MemoryPoolMXBean> memoryPoolMXBeans = ManagementFactory.getMemoryPoolMXBeans();
-		JSONArray memorySpacesData = new JSONArray();
-		for (MemoryPoolMXBean memoryPoolMXBean : memoryPoolMXBeans) {
-			JSONObject memorySpaceData = new JSONObject();
-			MemoryUsage memorySpaceUsage = memoryPoolMXBean.getUsage();
-			try {				
-				memorySpaceData.put("memorySpaceName", memoryPoolMXBean.getName()); // Static
-				memorySpaceData.put("memorySpaceType", memoryPoolMXBean.getType()); // Static
-				memorySpaceData.put("initMemory", memorySpaceUsage.getInit()); // Static
-				memorySpaceData.put("usedMemory", memorySpaceUsage.getUsed());
-				memorySpaceData.put("allocatedMemory", memorySpaceUsage.getCommitted());
-				memorySpaceData.put("maxMemory", memorySpaceUsage.getMax()); // Static
-			} 
-			catch(Exception e) {
-				e.printStackTrace();
-			}
-			memorySpacesData.put(memorySpaceData);
-		}
-        
-		JSONObject memoryUsageData = new JSONObject();
-		memoryUsageData.put("heapMemoryData", heapMemoryData);
-		memoryUsageData.put("nonHeapMemoryData", nonHeapMemoryData);
-		memoryUsageData.put("memorySpacesData", memorySpacesData);
-		
-		return memoryUsageData;
-	}
-	
-	public static JSONObject extractThreadStats() {
-		
-		ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
-
-		JSONObject threadUsageData = new JSONObject();
-		try {			
-			threadUsageData.put("activeThreadCount", threadMXBean.getThreadCount());
-			threadUsageData.put("peakThreadCount", threadMXBean.getPeakThreadCount());
-			threadUsageData.put("daemonThreadCount", threadMXBean.getDaemonThreadCount());
-			threadUsageData.put("totalThreadCount", threadMXBean.getTotalStartedThreadCount());
-			
-			long[] threadIds = threadMXBean.getAllThreadIds();
-			ThreadInfo[] threadInfos = threadMXBean.getThreadInfo(threadIds);
-			for(final ThreadInfo threadInfo : threadInfos) {
-				threadInfo.getBlockedTime();
-				threadInfo.getBlockedCount();
-				threadInfo.getLockedMonitors();
-				threadInfo.getLockedSynchronizers();
-				threadInfo.getLockInfo();
-				threadInfo.getLockName();
-				threadInfo.getLockOwnerId();
-				threadInfo.getPriority();
-				threadInfo.getStackTrace();
-				threadInfo.getThreadId();
-				threadInfo.getThreadName();
-				threadInfo.getThreadState();
-				
-				threadMXBean.getThreadCpuTime(threadInfo.getThreadId());
-				threadMXBean.getThreadUserTime(threadInfo.getThreadId());
-			}
-			
-			long[] deadlockedThreads = threadMXBean.findDeadlockedThreads();
-			threadUsageData.put("deadlockThreadCount", (deadlockedThreads == null)? 0 : deadlockedThreads.length);
-		} finally {}
-
-        
-        return threadUsageData;
-	}
-	
-	public static JSONArray extractGarbageCollectorStats() {
-		
-		List<GarbageCollectorMXBean> gcMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
-		JSONArray garbageCollectorStatsData = new JSONArray();
-
-        for (GarbageCollectorMXBean gcMXBean : gcMXBeans) {
-
-        	JSONObject gcStatsData = new JSONObject();
-        	try {
-        		
-        		
-        		gcStatsData.put("gcName", gcMXBean.getName()); // Static
-        		gcStatsData.put("gcCount", gcMXBean.getCollectionCount());
-        		gcStatsData.put("gcTime", gcMXBean.getCollectionTime());
-        		gcStatsData.put("gcManagedMemoryPools", new JSONArray(gcMXBean.getMemoryPoolNames())); // Static
-    			
-    		} finally {}
-        	
-        	garbageCollectorStatsData.put(gcStatsData);
-        }
-        
-        return garbageCollectorStatsData;
-	}
-	
-	public static JSONObject extractCompilationStats() {
-		 CompilationMXBean compilationMXBean = ManagementFactory.getCompilationMXBean();
-		 
-		 JSONObject compilationData = new JSONObject();
-			
-		 if(compilationMXBean.isCompilationTimeMonitoringSupported()) {
-
-			 compilationData.put("compilerName", compilationMXBean.getName()); // Static
-			 compilationData.put("compilationTime", compilationMXBean.getTotalCompilationTime());
-		 }
-		
-		 return compilationData;
-	}
-	
-	public static JSONObject extractRuntimeStats() {
-		RuntimeMXBean runtimeMXBean = ManagementFactory.getRuntimeMXBean();
-		Runtime runtime = Runtime.getRuntime();
-		
-		JSONObject runtimeData = new JSONObject();
-	
-		try {			
-			runtimeData.put("jvmProcessId", runtimeMXBean.getPid()); // Static
-			runtimeData.put("jvmStartTime", runtimeMXBean.getStartTime()); // Static
-			runtimeData.put("jvmUpTime", runtimeMXBean.getUptime());
-			runtimeData.put("systemClassLoaderClassPath", runtimeMXBean.getClassPath()); // Static
-			runtimeData.put("libraryPath", runtimeMXBean.getLibraryPath()); // Static
-			runtimeData.put("managementSpecVersion", runtimeMXBean.getManagementSpecVersion()); // Static
-			runtimeData.put("jvmName", runtimeMXBean.getName()); // Static
-			runtimeData.put("jvmSpecName", runtimeMXBean.getSpecName()); // Static
-			runtimeData.put("jvmSpceVendor", runtimeMXBean.getSpecVendor()); // Static
-			runtimeData.put("jvmSpecVersion", runtimeMXBean.getSpecVersion()); // Static
-			runtimeData.put("jvmVmName", runtimeMXBean.getVmName()); // Static
-			runtimeData.put("jvmVmVendor", runtimeMXBean.getVmVendor()); // Static
-			runtimeData.put("jvmVmVersion", runtimeMXBean.getVmVersion()); // Static
-			runtimeData.put("jvmTotalMemory", runtime.totalMemory());
-			runtimeData.put("jvmFreeMemory", runtime.freeMemory());
-			runtimeData.put("jvmMaxMemory", runtime.maxMemory()); // Static
-		} finally {}
-		
-		return runtimeData;
-	}
-	
-	public static JSONObject extractOperatingSystemStats() {
-		
-		OperatingSystemMXBean osMXBean = ManagementFactory.getOperatingSystemMXBean();
-		
-		JSONObject osData = new JSONObject();
-
-		try {			
-			osData.put("osName", osMXBean.getName()); // Static
-			osData.put("osVersion", osMXBean.getVersion()); // Static
-			osData.put("osArchitecture", osMXBean.getArch()); // Static
-			osData.put("availableProcessor", osMXBean.getAvailableProcessors()); // Static
-			osData.put("systemLoadAverage", osMXBean.getSystemLoadAverage());
-		} finally {}
-		
-        if (osMXBean instanceof com.sun.management.OperatingSystemMXBean) {
-            com.sun.management.OperatingSystemMXBean sunOsMXBean = (com.sun.management.OperatingSystemMXBean) osMXBean;
-            try {    			
-            	osData.put("systemCpuLoad", sunOsMXBean.getSystemCpuLoad());
-            	osData.put("processCpuLoad", sunOsMXBean.getProcessCpuLoad());
-            	osData.put("totalPhysicalMemorySize", sunOsMXBean.getTotalPhysicalMemorySize()); // Static
-            	osData.put("freePhysicalMemorySize", sunOsMXBean.getFreePhysicalMemorySize());
-            	osData.put("totalSwapSpace", sunOsMXBean.getTotalSwapSpaceSize()); // Static
-            	osData.put("freeSwapSpace", sunOsMXBean.getFreeSwapSpaceSize());
-    		} finally {}
-        }
-        
-        return osData;
-	}
-	
-	public static JSONObject extractClassLoadingStats() {
-		ClassLoadingMXBean classLoadingMXBean = ManagementFactory.getClassLoadingMXBean();
-		
-		JSONObject classLoadingData = new JSONObject();
-		
-		try {			
-			classLoadingData.put("loadedClassCount", classLoadingMXBean.getLoadedClassCount());
-			classLoadingData.put("totalLoadedClassCount", classLoadingMXBean.getTotalLoadedClassCount());
-			classLoadingData.put("unloadedClassCount", classLoadingMXBean.getUnloadedClassCount());
-		} finally {}
-
-		return classLoadingData;
-	}
-	
 }

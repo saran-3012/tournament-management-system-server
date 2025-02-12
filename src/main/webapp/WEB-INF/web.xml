@@ -26,7 +26,7 @@
   
   	<context-param>
 		<param-name>DataBaseConfig</param-name>
-	    <param-value>/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/db-config.yaml</param-value>
+	    <param-value>/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/conf/db-config.yaml</param-value>
   	</context-param>
   
   	<!-- Servlet Context Listener -->

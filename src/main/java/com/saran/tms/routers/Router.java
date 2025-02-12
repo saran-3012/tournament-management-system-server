@@ -23,6 +23,7 @@ import com.saran.tms.enums.StatusCodes;
 import com.saran.tms.enums.UserRoles;
 import com.saran.tms.exceptions.ResponseException;
 import com.saran.tms.logger.ApplicationLogger;
+import com.saran.tms.services.MonitoringService;
 import com.saran.tms.utils.RequestParser;
 
 public class Router {
@@ -78,6 +79,7 @@ public class Router {
 				}
 			}
 		}
+		MonitoringService.registerObject("endPointMapping", endPointMapping);
 		isInitialized = true;
 	}
 	
@@ -92,8 +94,6 @@ public class Router {
 			throw new ResponseException(StatusCodes.NOT_FOUND, "Route not found");
 		}
 		
-		Class<?> controllerClass = endPointController.getControllerClass();
-		String methodName = endPointController.getMethodName();
 		String routeUrl = endPointController.getUrl();
 		Set<UserRoles> allowedRoles = endPointController.getAllowedRoles();
 		
@@ -123,27 +123,13 @@ public class Router {
 		
 		RequestData requestData = new RequestData(request, params);
 
-		Controller controller = null;
-		
-		try {
-			controller = (Controller) controllerClass.getDeclaredConstructor().newInstance();
-		} 
-		catch (Exception e) {
-			 Throwable cause = e.getCause();
-			 if (cause != null) {
-			     ApplicationLogger.log(Level.WARNING, "Unable to create controller instance with reflection", cause);
-			 } 
-			 else {
-			     ApplicationLogger.log(Level.WARNING, "Unable to create controller instance with reflection", e);
-			 }
-			 throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the request");
-		}
+		Controller controller = endPointController.getController();
+		Method method = endPointController.getMethod();
 
 		ResponseData responseData = null;
 		
 		try {
-			responseData = (ResponseData) controllerClass.getDeclaredMethod(methodName, RequestData.class)
-														 .invoke(controller, requestData);
+			responseData = (ResponseData) method.invoke(controller, requestData);
 		} 
 		catch(InvocationTargetException e) {
 		     Throwable cause = e.getCause();
@@ -154,7 +140,7 @@ public class Router {
 		     ApplicationLogger.log(Level.WARNING, "Unable to invoke the method with reflection", e);
 	    	 throw new ResponseException(StatusCodes.INTERNAL_SERVER_ERROR, "Unable to process the content");
 		}
-		catch (IllegalAccessException | IllegalArgumentException | NoSuchMethodException | SecurityException e) {
+		catch (Exception e) {
 			 Throwable cause = e.getCause();
 			 if (cause != null) {
 			     ApplicationLogger.log(Level.WARNING, "Unable to invoke the method with reflection", cause);

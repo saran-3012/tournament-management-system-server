@@ -1,13 +1,19 @@
 package com.saran.tms.listeners;
 
+
 import org.yaml.snakeyaml.Yaml;
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.instrument.Instrumentation;
+import java.lang.management.ManagementFactory;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -16,10 +22,16 @@ import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
 
+import javax.management.MBeanServer;
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
+import com.saran.monitor.InstrumentationRegistryMBean;
+import com.saran.monitor.JvmManagementBean;
 import com.saran.tms.concurrency.ConcurrencyLimiterFactory;
 import com.saran.tms.config.ColumnConfig;
 import com.saran.tms.config.DataBaseConfig;
@@ -28,6 +40,7 @@ import com.saran.tms.connections.ConnectionPool;
 import com.saran.tms.controllers.UserController;
 import com.saran.tms.enums.Constraints;
 import com.saran.tms.logger.ApplicationLogger;
+import com.saran.tms.models.UserModel;
 import com.saran.tms.routers.Router;
 import com.saran.tms.services.MonitoringService;
 import com.saran.tms.test.Main;
@@ -46,7 +59,10 @@ public class AppContextListener implements ServletContextListener {
     
 	public AppContextListener() {}
 
-    public void contextInitialized(ServletContextEvent sce)  { 
+    @SuppressWarnings("unchecked")
+	public void contextInitialized(ServletContextEvent sce)  { 
+    	
+    	MonitoringService.initializeJvmBeam();
     	
     	ServletContext context = sce.getServletContext();
 
@@ -195,15 +211,15 @@ public class AppContextListener implements ServletContextListener {
         
         
         // App stats monitoring
-        
         final Runnable appStatsPersister = () -> {
     		
     		while(true) {
-    			
     			MonitoringService.persistLiveAppStats();
-    			MonitoringService.cleanupLiveAppStats(3 * 60 * 60 * 1000);
+//    			MonitoringService.cleanupLiveAppStats(3 * 60 * 60 * 1000);
+    			MonitoringService.cleanupLiveAppStats(1 * 60 * 60 * 1000);
     			try {
-    				Thread.sleep(1000 * 60 * 5);
+//    				Thread.sleep(1000 * 60 * 5);
+    				Thread.sleep(1000 * 10);
     			} catch (InterruptedException e) {
     				e.printStackTrace();
     				ApplicationLogger.log(Level.SEVERE, "Scheduler execution failed", e);
@@ -211,6 +227,14 @@ public class AppContextListener implements ServletContextListener {
     		}
     		
     	};
+    	
+    	
+    	
+    	MonitoringService.registerObject("tableNameConfigMap", tableNameConfigMap);
+    	MonitoringService.registerObject("modelNameConfigMap", modelNameConfigMap);
+    	
+    	System.out.println(tableNameConfigMap);
+    	
         
     	MonitoringService.persistStaticAppStats();
         appStatsThread = new Thread(appStatsPersister);
@@ -218,8 +242,29 @@ public class AppContextListener implements ServletContextListener {
         appStatsThread.start();
         
         
+//        MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
+//        ObjectName objectName = null;
+//		try {
+//			objectName = new ObjectName("com.saran:type=InstrumentationHolder");
+//		} catch (MalformedObjectNameException e) {
+//			e.printStackTrace();
+//		}
+//        InstrumentationRegistryMBean mBean = MBeanServerInvocationHandler.newProxyInstance(
+//            mBeanServer, objectName, InstrumentationRegistryMBean.class, false
+//        );
+//        Instrumentation instrumentation = mBean.getInstrumentation();
+//        
+//        JvmManagementBean jmb = JvmManagementBean.getInstance(instrumentation);
         
-    	
+        
+       
+        
+//        System.out.println("App Context listener : " + instrumentation);
+//        
+//        System.out.println("App Context listener, tableNameConfigMap : " + jmb.getObjectSize(tableNameConfigMap) / (1024.0 * 1024.0) + "mb");
+//        System.out.println("App Context listener, modelNameConfigMap : " + jmb.getObjectSize(modelNameConfigMap) / (1024.0 * 1024.0) + "mb");
+      
+         	
 //    	Main.main(null); // TESTING
     }
 
@@ -259,6 +304,7 @@ public class AppContextListener implements ServletContextListener {
         	ApplicationLogger.log(Level.WARNING, "Scheduler thread not stopped properly", e);
         	e.printStackTrace();
         }
+        
         
         
         // Close logger

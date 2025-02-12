@@ -18,5 +18,7 @@
 	<classpathentry kind="lib" path="/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/lib/json-20210307.jar"/>
 	<classpathentry kind="lib" path="/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/lib/jbcrypt-0.4.jar"/>
 	<classpathentry kind="lib" path="/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/lib/jedis-5.2.0.jar"/>
+	<classpathentry kind="lib" path="/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/lib/monitoring-utils.jar"/>
+	<classpathentry kind="lib" path="/Users/saran-pt7697/eclipse-workspace/tournament-management-system/src/main/webapp/WEB-INF/lib/caffeine-3.1.8.jar"/>
 	<classpathentry kind="output" path="build/classes"/>
 </classpath>

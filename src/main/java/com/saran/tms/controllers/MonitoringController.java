@@ -1,5 +1,6 @@
 package com.saran.tms.controllers;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.saran.tms.annotations.Route;
@@ -26,6 +27,33 @@ public class MonitoringController implements Controller {
 		
 		jsonData.put("data", appStats);
 		jsonData.put("message", "Data retrived successfully");
+		
+		return new ResponseData(StatusCodes.OK, jsonData);
+	}
+	
+	
+	@Route(path="/admin/app/object_refs", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER, UserRoles.USER})
+	public ResponseData getAvailableObjectReferences(RequestData request) throws ResponseException {
+		
+		JSONArray availableObjRefs = MonitoringService.getAvailableObjectReferences();
+		
+		JSONObject jsonData = new JSONObject();
+		
+		jsonData.put("data", availableObjRefs);
+		jsonData.put("message", "Available Object references retrived successfully");
+		
+		return new ResponseData(StatusCodes.OK, jsonData);
+	}
+	
+	@Route(path="/admin/app/objects", method="GET", allowedRoles= {UserRoles.APP_ADMIN, UserRoles.ORGANIZATION_ADMIN, UserRoles.ORGANIZATION_MEMBER, UserRoles.USER})
+	public ResponseData getObjectSize(RequestData request) throws ResponseException {
+		
+		JSONObject objSizes = MonitoringService.retriveObjectsSize(request.getQueryParams());
+		
+		JSONObject jsonData = new JSONObject();
+		
+		jsonData.put("data", objSizes);
+		jsonData.put("message", "Object sizes are returned in bytes");
 		
 		return new ResponseData(StatusCodes.OK, jsonData);
 	}
