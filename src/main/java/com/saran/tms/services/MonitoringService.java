@@ -34,6 +34,8 @@ import com.sun.management.GcInfo;
 
 import redis.clients.jedis.resps.Tuple;
 
+import redis.clients.*;
+
 public class MonitoringService {
 
 	private static JvmManagementBean jvmBean;
