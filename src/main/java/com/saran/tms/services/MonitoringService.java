@@ -32,8 +32,6 @@ import com.saran.tms.routers.QueryParams;
 import com.sun.management.GarbageCollectionNotificationInfo;
 import com.sun.management.GcInfo;
 
-import com.saran.tms.adapters.cache.*;
-
 import redis.clients.jedis.resps.Tuple;
 
 public class MonitoringService {
